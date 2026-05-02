@@ -1,0 +1,425 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B00000000000000000000001 /* MarkdownReaderMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000101 /* MarkdownReaderMacApp.swift */; };
+		B00000000000000000000002 /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000102 /* AppCommands.swift */; };
+		B00000000000000000000003 /* MarkdownDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000103 /* MarkdownDocument.swift */; };
+		B00000000000000000000004 /* AppPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000104 /* AppPalette.swift */; };
+		B00000000000000000000005 /* MarkdownTheme+Custom.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000105 /* MarkdownTheme+Custom.swift */; };
+		B00000000000000000000006 /* ReadingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000106 /* ReadingMode.swift */; };
+		B00000000000000000000007 /* MarkdownAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000107 /* MarkdownAnalysis.swift */; };
+		B00000000000000000000008 /* RecentDocumentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000108 /* RecentDocumentStore.swift */; };
+		B00000000000000000000009 /* LibraryWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000109 /* LibraryWindow.swift */; };
+		B0000000000000000000000A /* DocumentReaderRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000010A /* DocumentReaderRoot.swift */; };
+		B0000000000000000000000B /* ReaderSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000010B /* ReaderSurface.swift */; };
+		B0000000000000000000000C /* OutlineSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000010C /* OutlineSidebar.swift */; };
+		B0000000000000000000000D /* EditorWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000010D /* EditorWorkspace.swift */; };
+		B0000000000000000000000E /* ExportPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000010E /* ExportPanel.swift */; };
+		B0000000000000000000000F /* ExportRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000010F /* ExportRunner.swift */; };
+		B00000000000000000000010 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = B00000000000000000000301 /* MarkdownUI */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B00000000000000000000200 /* MarkLens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkLens.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B00000000000000000000101 /* MarkdownReaderMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownReaderMacApp.swift; sourceTree = "<group>"; };
+		B00000000000000000000102 /* AppCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommands.swift; sourceTree = "<group>"; };
+		B00000000000000000000103 /* MarkdownDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocument.swift; sourceTree = "<group>"; };
+		B00000000000000000000104 /* AppPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPalette.swift; sourceTree = "<group>"; };
+		B00000000000000000000105 /* MarkdownTheme+Custom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MarkdownTheme+Custom.swift"; sourceTree = "<group>"; };
+		B00000000000000000000106 /* ReadingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingMode.swift; sourceTree = "<group>"; };
+		B00000000000000000000107 /* MarkdownAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownAnalysis.swift; sourceTree = "<group>"; };
+		B00000000000000000000108 /* RecentDocumentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentDocumentStore.swift; sourceTree = "<group>"; };
+		B00000000000000000000109 /* LibraryWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryWindow.swift; sourceTree = "<group>"; };
+		B0000000000000000000010A /* DocumentReaderRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentReaderRoot.swift; sourceTree = "<group>"; };
+		B0000000000000000000010B /* ReaderSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderSurface.swift; sourceTree = "<group>"; };
+		B0000000000000000000010C /* OutlineSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineSidebar.swift; sourceTree = "<group>"; };
+		B0000000000000000000010D /* EditorWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWorkspace.swift; sourceTree = "<group>"; };
+		B0000000000000000000010E /* ExportPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportPanel.swift; sourceTree = "<group>"; };
+		B0000000000000000000010F /* ExportRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportRunner.swift; sourceTree = "<group>"; };
+		B00000000000000000000110 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B00000000000000000000111 /* MarkdownReaderMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MarkdownReaderMac.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B00000000000000000000400 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00000000000000000000010 /* MarkdownUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B00000000000000000000500 = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000501 /* MarkdownReaderMac */,
+				B00000000000000000000502 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B00000000000000000000501 /* MarkdownReaderMac */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000503 /* App */,
+				B00000000000000000000504 /* Documents */,
+				B00000000000000000000505 /* Design */,
+				B00000000000000000000506 /* Models */,
+				B00000000000000000000507 /* Features */,
+				B0000000000000000000050B /* Resources */,
+			);
+			path = MarkdownReaderMac;
+			sourceTree = "<group>";
+		};
+		B00000000000000000000502 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000200 /* MarkLens.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B00000000000000000000503 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000101 /* MarkdownReaderMacApp.swift */,
+				B00000000000000000000102 /* AppCommands.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		B00000000000000000000504 /* Documents */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000103 /* MarkdownDocument.swift */,
+			);
+			path = Documents;
+			sourceTree = "<group>";
+		};
+		B00000000000000000000505 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000104 /* AppPalette.swift */,
+				B00000000000000000000105 /* MarkdownTheme+Custom.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		B00000000000000000000506 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000106 /* ReadingMode.swift */,
+				B00000000000000000000107 /* MarkdownAnalysis.swift */,
+				B00000000000000000000108 /* RecentDocumentStore.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		B00000000000000000000507 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000508 /* Library */,
+				B00000000000000000000509 /* Reader */,
+				B0000000000000000000050D /* Editor */,
+				B0000000000000000000050A /* Export */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		B00000000000000000000508 /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000109 /* LibraryWindow.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		B00000000000000000000509 /* Reader */ = {
+			isa = PBXGroup;
+			children = (
+				B0000000000000000000010A /* DocumentReaderRoot.swift */,
+				B0000000000000000000010B /* ReaderSurface.swift */,
+				B0000000000000000000010C /* OutlineSidebar.swift */,
+			);
+			path = Reader;
+			sourceTree = "<group>";
+		};
+		B0000000000000000000050D /* Editor */ = {
+			isa = PBXGroup;
+			children = (
+				B0000000000000000000010D /* EditorWorkspace.swift */,
+			);
+			path = Editor;
+			sourceTree = "<group>";
+		};
+		B0000000000000000000050A /* Export */ = {
+			isa = PBXGroup;
+			children = (
+				B0000000000000000000010E /* ExportPanel.swift */,
+				B0000000000000000000010F /* ExportRunner.swift */,
+			);
+			path = Export;
+			sourceTree = "<group>";
+		};
+		B0000000000000000000050B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000110 /* Info.plist */,
+				B00000000000000000000111 /* MarkdownReaderMac.entitlements */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B00000000000000000000600 /* MarkLens */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B00000000000000000000700 /* Build configuration list for PBXNativeTarget "MarkLens" */;
+			buildPhases = (
+				B00000000000000000000601 /* Sources */,
+				B00000000000000000000400 /* Frameworks */,
+				B00000000000000000000602 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MarkLens;
+			packageProductDependencies = (
+				B00000000000000000000301 /* MarkdownUI */,
+			);
+			productName = MarkLens;
+			productReference = B00000000000000000000200 /* MarkLens.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B00000000000000000000800 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					B00000000000000000000600 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
+				};
+			};
+			buildConfigurationList = B00000000000000000000801 /* Build configuration list for PBXProject "MarkdownReaderMac" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = B00000000000000000000500;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B00000000000000000000300 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B00000000000000000000502 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B00000000000000000000600 /* MarkLens */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B00000000000000000000602 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B00000000000000000000601 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00000000000000000000001 /* MarkdownReaderMacApp.swift in Sources */,
+				B00000000000000000000002 /* AppCommands.swift in Sources */,
+				B00000000000000000000003 /* MarkdownDocument.swift in Sources */,
+				B00000000000000000000004 /* AppPalette.swift in Sources */,
+				B00000000000000000000005 /* MarkdownTheme+Custom.swift in Sources */,
+				B00000000000000000000006 /* ReadingMode.swift in Sources */,
+				B00000000000000000000007 /* MarkdownAnalysis.swift in Sources */,
+				B00000000000000000000008 /* RecentDocumentStore.swift in Sources */,
+				B00000000000000000000009 /* LibraryWindow.swift in Sources */,
+				B0000000000000000000000A /* DocumentReaderRoot.swift in Sources */,
+				B0000000000000000000000B /* ReaderSurface.swift in Sources */,
+				B0000000000000000000000C /* OutlineSidebar.swift in Sources */,
+				B0000000000000000000000D /* EditorWorkspace.swift in Sources */,
+				B0000000000000000000000E /* ExportPanel.swift in Sources */,
+				B0000000000000000000000F /* ExportRunner.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		B00000000000000000000901 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B00000000000000000000902 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		B00000000000000000000903 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MarkdownReaderMac/Resources/MarkdownReaderMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarkdownReaderMac/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.oreo.MarkLens";
+				PRODUCT_NAME = MarkLens;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B00000000000000000000904 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MarkdownReaderMac/Resources/MarkdownReaderMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarkdownReaderMac/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.oreo.MarkLens";
+				PRODUCT_NAME = MarkLens;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B00000000000000000000801 /* Build configuration list for PBXProject "MarkdownReaderMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B00000000000000000000901 /* Debug */,
+				B00000000000000000000902 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B00000000000000000000700 /* Build configuration list for PBXNativeTarget "MarkLens" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B00000000000000000000903 /* Debug */,
+				B00000000000000000000904 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B00000000000000000000300 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B00000000000000000000301 /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B00000000000000000000300 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = B00000000000000000000800 /* Project object */;
+}

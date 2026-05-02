@@ -1,0 +1,39 @@
+# Build outputs
+.build/
+build/
+DerivedData/
+dist/
+*.dmg
+*.zip
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.swiftpm/
+Packages/
+Package.resolved
+
+# macOS noise
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+
+# Profiling / instrumentation
+*.profraw
+*.gcda
+*.gcno
+
+# Local agent / scratch
+.claude/
+.cursor/
+agent-output/
