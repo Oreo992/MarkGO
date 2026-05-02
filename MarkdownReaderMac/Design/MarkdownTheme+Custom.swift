@@ -4,11 +4,17 @@ import MarkdownUI
 extension Theme {
     /// Reading theme aligned with the iOS app: editorial paper background,
     /// quiet code blocks, and Chinese-aware spacing.
-    static let custom = Theme()
+    static let custom = Theme.scaled(1.0)
+
+    /// Returns a copy of the editorial reading theme whose body font scales
+    /// uniformly. MarkdownUI ignores SwiftUI's `.font` modifier on
+    /// `Markdown` views, so we have to bake the size into the theme.
+    static func scaled(_ factor: CGFloat) -> Theme {
+        Theme()
         .text {
             ForegroundColor(Color(red: 0.12, green: 0.13, blue: 0.13))
             BackgroundColor(.clear)
-            FontSize(16)
+            FontSize(16 * factor)
         }
         .strong {
             FontWeight(.semibold)
@@ -176,4 +182,5 @@ extension Theme {
                 .frame(height: 1)
                 .markdownMargin(top: 26, bottom: 26)
         }
+    }
 }

@@ -5,7 +5,6 @@ import SwiftUI
 /// collapse it from the standard NavigationSplitView affordance.
 struct OutlineSidebar: View {
     let analysis: MarkdownAnalysis
-    @Binding var selectedMode: ReadingMode
     @Binding var workspaceMode: WorkspaceMode
     let onSelectHeading: (String) -> Void
 
@@ -13,10 +12,6 @@ struct OutlineSidebar: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 WorkspaceSwitcher(workspaceMode: $workspaceMode)
-
-                Divider().background(AppPalette.line.opacity(0.6))
-
-                ModeList(selectedMode: $selectedMode)
 
                 Divider().background(AppPalette.line.opacity(0.6))
 
@@ -72,53 +67,6 @@ private struct WorkspaceSwitcher: View {
             )
         }
         .buttonStyle(.plain)
-    }
-}
-
-private struct ModeList: View {
-    @Binding var selectedMode: ReadingMode
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SidebarLabel(title: "阅读形态")
-
-            VStack(spacing: 6) {
-                ForEach(ReadingMode.allCases) { mode in
-                    Button {
-                        withAnimation(.smooth(duration: 0.18)) {
-                            selectedMode = mode
-                        }
-                    } label: {
-                        HStack(spacing: 10) {
-                            Circle()
-                                .fill(mode.accent)
-                                .frame(width: 10, height: 10)
-                            Text(mode.title)
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(selectedMode == mode ? AppPalette.ink : AppPalette.ink.opacity(0.78))
-                            Spacer()
-                            Text(mode.subtitle)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(AppPalette.mutedInk)
-                                .lineLimit(1)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(
-                            selectedMode == mode
-                                ? mode.accent.opacity(0.15)
-                                : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(selectedMode == mode ? mode.accent.opacity(0.45) : .clear, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
     }
 }
 

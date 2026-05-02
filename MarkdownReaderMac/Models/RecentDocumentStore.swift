@@ -125,12 +125,17 @@ enum RecentDocumentStore {
         }
     }
 
+    /// Snippet kept as a multi-line block (up to ~6 lines, 220 chars) so the
+    /// home screen can render a paper-style preview of the document instead
+    /// of a single squashed line.
     private static func makeSnippet(_ text: String) -> String {
-        let cleaned = text
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "  ", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return String(cleaned.prefix(140))
+        let lines = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .prefix(6)
+        let joined = lines.joined(separator: "\n")
+        return String(joined.prefix(220))
     }
 
     private static func persist(_ documents: [RecentDocument]) {

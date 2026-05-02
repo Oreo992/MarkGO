@@ -17,10 +17,10 @@ struct DocumentReaderRoot: View {
     @State private var exportPresentation: ExportPresentation?
     @State private var fontScale: CGFloat = 1.0
     @State private var pendingScrollID: String?
-
-    private var analysis: MarkdownAnalysis {
-        MarkdownAnalysis(text: document.text)
-    }
+    /// Cached parse output. We refresh it from `.task(id:)` so we never re-run
+    /// the analyzer in the middle of SwiftUI's render pass and the body itself
+    /// stays a pure read against the cache.
+    @State private var analysis: MarkdownAnalysis = MarkdownAnalysis(text: "")
 
     private var resolvedTitle: String {
         if let url = fileURL { return url.deletingPathExtension().lastPathComponent }
@@ -31,7 +31,6 @@ struct DocumentReaderRoot: View {
         NavigationSplitView {
             OutlineSidebar(
                 analysis: analysis,
-                selectedMode: $selectedMode,
                 workspaceMode: $workspaceMode,
                 onSelectHeading: { id in
                     pendingScrollID = id
@@ -76,9 +75,15 @@ struct DocumentReaderRoot: View {
                 handleExportRequest(request)
             }
             .onAppear {
+                analysis = MarkdownAnalysis(text: document.text)
                 trackRecent()
             }
-            .onChange(of: document.text) { _, _ in
+            .task(id: document.text) {
+                // Debounce re-parsing so fast typing in the editor does not
+                // trigger an analyzer pass on every keystroke.
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                if Task.isCancelled { return }
+                analysis = MarkdownAnalysis(text: document.text)
                 trackRecent()
             }
         }
@@ -229,23 +234,28 @@ struct ModeStrip: View {
     @Binding var selectedMode: ReadingMode
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             ForEach(ReadingMode.allCases) { mode in
                 Button {
                     withAnimation(.smooth(duration: 0.18)) {
                         selectedMode = mode
                     }
                 } label: {
-                    Label(mode.title, systemImage: mode.symbol)
-                        .labelStyle(.titleAndIcon)
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(selectedMode == mode ? .white : mode.accent)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            selectedMode == mode ? mode.accent : mode.accent.opacity(0.10),
-                            in: Capsule()
-                        )
+                    HStack(spacing: 4) {
+                        Image(systemName: mode.symbol)
+                            .font(.system(size: 11, weight: .bold))
+                        Text(mode.title)
+                            .font(.system(size: 11, weight: .bold))
+                            .fixedSize()
+                    }
+                    .foregroundStyle(selectedMode == mode ? .white : mode.accent)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(
+                        selectedMode == mode ? mode.accent : mode.accent.opacity(0.10),
+                        in: Capsule()
+                    )
+                    .fixedSize()
                 }
                 .buttonStyle(.plain)
                 .help("\(mode.title) · \(mode.subtitle) (⌘⌥\(modeShortcut(for: mode)))")
@@ -254,6 +264,7 @@ struct ModeStrip: View {
         .padding(4)
         .background(.regularMaterial, in: Capsule())
         .overlay(Capsule().stroke(AppPalette.line.opacity(0.4), lineWidth: 1))
+        .fixedSize()
     }
 
     private func modeShortcut(for mode: ReadingMode) -> String {

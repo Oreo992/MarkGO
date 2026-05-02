@@ -96,6 +96,10 @@ struct SourceEditor: NSViewRepresentable {
             height: CGFloat.greatestFiniteMagnitude
         )
 
+        // Register the text view with the editor command bus so toolbar
+        // buttons can target the correct cursor position.
+        EditorCommandBus.shared.register(textView)
+
         return scrollView
     }
 
@@ -110,6 +114,12 @@ struct SourceEditor: NSViewRepresentable {
         ))
     }
 
+    static func dismantleNSView(_ nsView: NSScrollView, coordinator: Coordinator) {
+        if let textView = nsView.documentView as? NSTextView {
+            EditorCommandBus.shared.unregister(textView)
+        }
+    }
+
     final class Coordinator: NSObject, NSTextViewDelegate {
         @Binding var text: String
 
@@ -121,6 +131,119 @@ struct SourceEditor: NSViewRepresentable {
             guard let textView = notification.object as? NSTextView else { return }
             text = textView.string
         }
+    }
+}
+
+/// Routes toolbar actions from SwiftUI buttons to the most recent
+/// `NSTextView` in the foreground document so insertions land at the cursor
+/// (or wrap the active selection) instead of being appended.
+final class EditorCommandBus {
+    static let shared = EditorCommandBus()
+
+    private weak var current: NSTextView?
+    private var observers: [Any] = []
+
+    private init() {
+        let center = NotificationCenter.default
+
+        observers.append(center.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let window = note.object as? NSWindow else { return }
+            if let textView = self?.findTextView(in: window) {
+                self?.current = textView
+            }
+        })
+    }
+
+    func register(_ textView: NSTextView) {
+        current = textView
+    }
+
+    func unregister(_ textView: NSTextView) {
+        if current === textView { current = nil }
+    }
+
+    /// Replaces the selection (or inserts at the caret) with `replacement`.
+    /// If the selection is empty and `placeholder` is non-nil, uses it as
+    /// fallback content so the user can immediately overwrite it.
+    @discardableResult
+    func replaceSelection(with replacement: String, placeholder: String? = nil) -> Bool {
+        guard let textView = activeTextView() else { return false }
+
+        let nsString = textView.string as NSString
+        let selectedRange = textView.selectedRange()
+        let resolved: String
+        if selectedRange.length == 0, let placeholder {
+            resolved = replacement.replacingOccurrences(of: "{}", with: placeholder)
+        } else {
+            let selected = nsString.substring(with: selectedRange)
+            resolved = replacement.replacingOccurrences(of: "{}", with: selected)
+        }
+
+        if textView.shouldChangeText(in: selectedRange, replacementString: resolved) {
+            textView.replaceCharacters(in: selectedRange, with: resolved)
+            textView.didChangeText()
+            // Place the caret right after the inserted block.
+            textView.setSelectedRange(NSRange(
+                location: selectedRange.location + (resolved as NSString).length,
+                length: 0
+            ))
+        }
+        return true
+    }
+
+    /// Toggles a line-prefix marker (e.g. `# `, `> `, `- `) on every line that
+    /// intersects the current selection.
+    @discardableResult
+    func togglePrefix(_ prefix: String) -> Bool {
+        guard let textView = activeTextView() else { return false }
+        let nsString = textView.string as NSString
+        let lineRange = nsString.lineRange(for: textView.selectedRange())
+        let block = nsString.substring(with: lineRange)
+        let lines = block.components(separatedBy: "\n")
+        let allHave = lines.allSatisfy { $0.isEmpty || $0.hasPrefix(prefix) }
+        let transformed: [String] = lines.map { line in
+            if line.isEmpty { return line }
+            if allHave {
+                return String(line.dropFirst(prefix.count))
+            }
+            return prefix + line
+        }
+        let replacement = transformed.joined(separator: "\n")
+        if textView.shouldChangeText(in: lineRange, replacementString: replacement) {
+            textView.replaceCharacters(in: lineRange, with: replacement)
+            textView.didChangeText()
+            textView.setSelectedRange(NSRange(
+                location: lineRange.location,
+                length: (replacement as NSString).length
+            ))
+        }
+        return true
+    }
+
+    private func activeTextView() -> NSTextView? {
+        if let current { return current }
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            return findTextView(in: window)
+        }
+        return nil
+    }
+
+    private func findTextView(in window: NSWindow) -> NSTextView? {
+        if let firstResponder = window.firstResponder as? NSTextView { return firstResponder }
+        return locateTextView(in: window.contentView)
+    }
+
+    private func locateTextView(in view: NSView?) -> NSTextView? {
+        guard let view else { return nil }
+        if let textView = view as? NSTextView { return textView }
+        for sub in view.subviews {
+            if let found = locateTextView(in: sub) { return found }
+        }
+        return nil
     }
 }
 
@@ -150,51 +273,28 @@ private struct EditorToolbar: View {
     @Binding var text: String
 
     var body: some View {
-        HStack(spacing: 8) {
-            ToolButton(title: "H1") { wrap("# ") }
-            ToolButton(title: "H2") { wrap("## ") }
-            ToolButton(title: "H3") { wrap("### ") }
+        HStack(spacing: 6) {
+            ToolButton(title: "H1") { EditorCommandBus.shared.togglePrefix("# ") }
+            ToolButton(title: "H2") { EditorCommandBus.shared.togglePrefix("## ") }
+            ToolButton(title: "H3") { EditorCommandBus.shared.togglePrefix("### ") }
             Divider().frame(height: 18)
-            ToolButton(title: "B") { surround("**") }
-            ToolButton(title: "I") { surround("*") }
-            ToolButton(title: "S") { surround("~~") }
+            ToolButton(title: "B") { EditorCommandBus.shared.replaceSelection(with: "**{}**", placeholder: "粗体") }
+            ToolButton(title: "I") { EditorCommandBus.shared.replaceSelection(with: "*{}*", placeholder: "斜体") }
+            ToolButton(title: "S") { EditorCommandBus.shared.replaceSelection(with: "~~{}~~", placeholder: "删除") }
             Divider().frame(height: 18)
-            ToolButton(title: "代码") { surround("`") }
-            ToolButton(title: "引用") { wrap("> ") }
-            ToolButton(title: "列表") { wrap("- ") }
-            ToolButton(title: "任务") { wrap("- [ ] ") }
-            ToolButton(title: "链接") { insertLink() }
-            ToolButton(title: "分割") { append("\n\n---\n\n") }
-            ToolButton(title: "代码块") { append("\n\n```\n// code\n```\n\n") }
+            ToolButton(title: "代码") { EditorCommandBus.shared.replaceSelection(with: "`{}`", placeholder: "code") }
+            ToolButton(title: "引用") { EditorCommandBus.shared.togglePrefix("> ") }
+            ToolButton(title: "列表") { EditorCommandBus.shared.togglePrefix("- ") }
+            ToolButton(title: "任务") { EditorCommandBus.shared.togglePrefix("- [ ] ") }
+            ToolButton(title: "链接") { EditorCommandBus.shared.replaceSelection(with: "[{}](https://)", placeholder: "标题") }
+            ToolButton(title: "分割") { EditorCommandBus.shared.replaceSelection(with: "\n\n---\n\n") }
+            ToolButton(title: "代码块") { EditorCommandBus.shared.replaceSelection(with: "\n```\n{}\n```\n", placeholder: "// code") }
             Spacer()
             Text("\(text.filter { !$0.isWhitespace }.count) 字 · \(text.count) 字符")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppPalette.mutedInk)
+                .monospacedDigit()
         }
-    }
-
-    private func append(_ snippet: String) {
-        if text.hasSuffix("\n") || text.isEmpty {
-            text += snippet.trimmingCharacters(in: .newlines) + "\n"
-        } else {
-            text += "\n" + snippet.trimmingCharacters(in: .newlines) + "\n"
-        }
-    }
-
-    private func wrap(_ prefix: String) {
-        var lines = text.components(separatedBy: "\n")
-        if lines.isEmpty { lines = [""] }
-        let last = lines.removeLast()
-        lines.append(prefix + last)
-        text = lines.joined(separator: "\n")
-    }
-
-    private func surround(_ marker: String) {
-        text += "\(marker)文字\(marker)"
-    }
-
-    private func insertLink() {
-        text += "[标题](https://)"
     }
 }
 

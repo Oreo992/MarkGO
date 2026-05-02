@@ -179,9 +179,8 @@ private struct MarkdownSectionView: View {
 
     var body: some View {
         Markdown(section.markdown)
-            .markdownTheme(.custom)
+            .markdownTheme(.scaled(fontScale))
             .textSelection(.enabled)
-            .font(.system(size: 16 * fontScale))
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(section.id)
             .padding(.vertical, selectedMode.inlineSectionPadding)
@@ -208,9 +207,8 @@ private struct MarkdownSectionCard: View {
             }
 
             Markdown(section.bodyMarkdown.isEmpty ? section.markdown : section.bodyMarkdown)
-                .markdownTheme(.custom)
+                .markdownTheme(.scaled(fontScale))
                 .textSelection(.enabled)
-                .font(.system(size: 16 * fontScale))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .id(section.id)

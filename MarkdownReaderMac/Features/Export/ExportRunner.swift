@@ -101,48 +101,27 @@ enum ExportRunner {
             context: nil
         )
         let canvasHeight = max(canvasWidth * 1.0, measured.height + 220)
-        let pixelWidth = Int(canvasWidth)
-        let pixelHeight = Int(canvasHeight)
+        let canvasSize = CGSize(width: canvasWidth, height: canvasHeight)
 
-        // Build a bitmap-backed graphics context with the flipped (top-left)
-        // origin convention so NSAttributedString.draw renders top-down, the
-        // way readers expect.
-        guard let bitmap = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: pixelWidth,
-            pixelsHigh: pixelHeight,
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        ) else {
+        // Render through NSImage with a flipped lock focus. lockFocusFlipped
+        // installs a graphics context whose origin sits at the top-left, so
+        // both NSAttributedString.draw and NSColor fills cooperate without
+        // any manual coordinate gymnastics.
+        let image = NSImage(size: canvasSize)
+        image.lockFocusFlipped(true)
+
+        // The current graphics context is the one lockFocus just installed.
+        guard let graphicsContext = NSGraphicsContext.current else {
+            image.unlockFocus()
             throw ExportError.contextCreation
         }
-        bitmap.size = NSSize(width: canvasWidth, height: canvasHeight)
+        let flippedCG = graphicsContext.cgContext
 
-        guard let graphicsContext = NSGraphicsContext(bitmapImageRep: bitmap) else {
-            throw ExportError.contextCreation
-        }
+        flippedCG.setFillColor(theme.backgroundColor.cgColor)
+        flippedCG.fill(CGRect(origin: .zero, size: canvasSize))
 
-        let flipped = NSGraphicsContext(cgContext: graphicsContext.cgContext, flipped: true)
-
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = flipped
-        defer { NSGraphicsContext.restoreGraphicsState() }
-
-        let cgContext = flipped.cgContext
-
-        // Fill background using the CGContext directly to avoid relying on the
-        // current NSGraphicsContext for color resolution.
-        cgContext.setFillColor(theme.backgroundColor.cgColor)
-        cgContext.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
-
-        // Accent rule near the top of the image.
-        cgContext.setFillColor(theme.accentColor.withAlphaComponent(0.20).cgColor)
-        cgContext.fill(CGRect(x: horizontalPadding, y: 64, width: 160, height: 12))
+        flippedCG.setFillColor(theme.accentColor.withAlphaComponent(0.20).cgColor)
+        flippedCG.fill(CGRect(x: horizontalPadding, y: 64, width: 160, height: 12))
 
         let drawRect = CGRect(
             x: horizontalPadding,
@@ -168,10 +147,14 @@ enum ExportRunner {
             ))
         }
 
-        guard let data = bitmap.representation(using: .png, properties: [:]) else {
+        image.unlockFocus()
+
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmap.representation(using: .png, properties: [:]) else {
             throw ExportError.contextCreation
         }
-        try data.write(to: url, options: .atomic)
+        try pngData.write(to: url, options: .atomic)
         return url
     }
 
