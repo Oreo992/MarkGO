@@ -43,18 +43,19 @@ enum ExportRunner {
         repeat {
             context.beginPDFPage(nil)
 
-            theme.backgroundColor.setFill()
+            // CGContext PDF coordinate system has the origin in the bottom-left.
+            // Set the fill via the CGContext directly so it does not depend on
+            // an active NSGraphicsContext (which is what NSColor.setFill needs).
+            context.setFillColor(theme.backgroundColor.cgColor)
             context.fill(pageRect)
 
+            // Build the layout path in PDF coordinates. CTFrame begins drawing
+            // from the path's top edge by default, so the text reads top-down
+            // without any axis flipping.
             let path = CGMutablePath()
             path.addRect(pageRect.insetBy(dx: 48, dy: 56))
             let frame = CTFramesetterCreateFrame(framesetter, range, path, nil)
-            context.saveGState()
-            context.textMatrix = .identity
-            context.translateBy(x: 0, y: pageRect.height)
-            context.scaleBy(x: 1, y: -1)
             CTFrameDraw(frame, context)
-            context.restoreGState()
 
             if watermark {
                 drawWatermark(in: context, pageRect: pageRect, theme: theme)
@@ -100,41 +101,73 @@ enum ExportRunner {
             context: nil
         )
         let canvasHeight = max(canvasWidth * 1.0, measured.height + 220)
+        let pixelWidth = Int(canvasWidth)
+        let pixelHeight = Int(canvasHeight)
 
-        let image = NSImage(size: CGSize(width: canvasWidth, height: canvasHeight))
-        image.lockFocus()
-        defer { image.unlockFocus() }
+        // Build a bitmap-backed graphics context with the flipped (top-left)
+        // origin convention so NSAttributedString.draw renders top-down, the
+        // way readers expect.
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixelWidth,
+            pixelsHigh: pixelHeight,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            throw ExportError.contextCreation
+        }
+        bitmap.size = NSSize(width: canvasWidth, height: canvasHeight)
 
-        guard let context = NSGraphicsContext.current?.cgContext else {
+        guard let graphicsContext = NSGraphicsContext(bitmapImageRep: bitmap) else {
             throw ExportError.contextCreation
         }
 
-        theme.backgroundColor.setFill()
-        context.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+        let flipped = NSGraphicsContext(cgContext: graphicsContext.cgContext, flipped: true)
 
-        theme.accentColor.withAlphaComponent(0.18).setFill()
-        context.fill(CGRect(x: horizontalPadding, y: canvasHeight - 78, width: 160, height: 12))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = flipped
+        defer { NSGraphicsContext.restoreGraphicsState() }
+
+        let cgContext = flipped.cgContext
+
+        // Fill background using the CGContext directly to avoid relying on the
+        // current NSGraphicsContext for color resolution.
+        cgContext.setFillColor(theme.backgroundColor.cgColor)
+        cgContext.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+
+        // Accent rule near the top of the image.
+        cgContext.setFillColor(theme.accentColor.withAlphaComponent(0.20).cgColor)
+        cgContext.fill(CGRect(x: horizontalPadding, y: 64, width: 160, height: 12))
 
         let drawRect = CGRect(
             x: horizontalPadding,
-            y: 90,
+            y: 100,
             width: contentWidth,
             height: measured.height + 40
         )
         body.draw(in: drawRect)
 
         if watermark {
-            drawWatermark(
-                in: context,
-                pageRect: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight),
-                theme: theme
+            let watermarkAttributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
+                .foregroundColor: theme.inkColor.withAlphaComponent(0.45)
+            ]
+            let watermarkText = NSAttributedString(
+                string: "Made with MarkLens",
+                attributes: watermarkAttributes
             )
+            let watermarkSize = watermarkText.size()
+            watermarkText.draw(at: CGPoint(
+                x: canvasWidth - watermarkSize.width - horizontalPadding,
+                y: canvasHeight - watermarkSize.height - 32
+            ))
         }
 
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            throw ExportError.contextCreation
-        }
-        let bitmap = NSBitmapImageRep(cgImage: cgImage)
         guard let data = bitmap.representation(using: .png, properties: [:]) else {
             throw ExportError.contextCreation
         }
@@ -245,25 +278,27 @@ enum ExportRunner {
     }
 
     private static func drawWatermark(in context: CGContext, pageRect: CGRect, theme: ExportTheme) {
-        let watermark = NSAttributedString(
-            string: "Made with MarkLens",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 9, weight: .semibold),
-                .foregroundColor: theme.inkColor.withAlphaComponent(0.45)
-            ]
-        )
-        let size = watermark.size()
-        let point = CGPoint(x: pageRect.maxX - size.width - 36, y: 32)
+        // Draw the watermark using Core Text directly so we never depend on
+        // the AppKit drawing stack inside a PDF (which has the bottom-left
+        // origin and no NSGraphicsContext).
+        let attributed = CFAttributedStringCreate(
+            nil,
+            "Made with MarkLens" as CFString,
+            [
+                kCTFontAttributeName: CTFontCreateWithName("HelveticaNeue" as CFString, 9, nil),
+                kCTForegroundColorAttributeName: theme.inkColor.withAlphaComponent(0.45).cgColor
+            ] as CFDictionary
+        )!
+        let line = CTLineCreateWithAttributedString(attributed)
+        let bounds = CTLineGetImageBounds(line, context)
 
-        if NSGraphicsContext.current == nil {
-            let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
-            NSGraphicsContext.saveGraphicsState()
-            NSGraphicsContext.current = nsContext
-            watermark.draw(at: point)
-            NSGraphicsContext.restoreGraphicsState()
-        } else {
-            watermark.draw(at: point)
-        }
+        context.saveGState()
+        context.textPosition = CGPoint(
+            x: pageRect.maxX - bounds.width - 36,
+            y: 28
+        )
+        CTLineDraw(line, context)
+        context.restoreGState()
     }
 
     private static func makeHTMLDocument(
