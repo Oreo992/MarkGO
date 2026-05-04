@@ -30,7 +30,7 @@ MarkGo sits between Markdown source and human readability. Open a file, get a re
 
 ## Install
 
-[Download MarkGo for macOS](https://github.com/Oreo992/mark-go/releases/latest/download/MarkGo-1.0.0-mac.dmg)
+[Download MarkGo for macOS](https://github.com/Oreo992/MarkGO/releases/latest/download/MarkGo-1.0.0-mac.dmg)
 
 Open the DMG, then drag `MarkGo.app` into `Applications`.
 

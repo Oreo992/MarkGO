@@ -32,7 +32,7 @@ MarkGo 做的事很简单：站在 Markdown 源码和人的阅读之间，把文
 
 ## 安装
 
-[下载 MarkGo for macOS](https://github.com/Oreo992/mark-go/releases/latest/download/MarkGo-1.0.0-mac.dmg)
+[下载 MarkGo for macOS](https://github.com/Oreo992/MarkGO/releases/latest/download/MarkGo-1.0.0-mac.dmg)
 
 打开 DMG 后，把左边的 `MarkGo.app` 拖到右边的 `Applications`。
 
