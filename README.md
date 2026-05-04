@@ -25,6 +25,32 @@ MarkGo 做的事很简单：站在 Markdown 源码和人的阅读之间，把文
 - 调整字号和阅读样式
 - 导出 PDF、长图、HTML、富文本、纯文本和 Markdown
 
+
+## 多样风格
+<img width="2048" height="1360" alt="image" src="https://github.com/user-attachments/assets/4b8509ad-1e20-4869-90db-240acd1d9d78" />
+
+
+### 清读风格
+<img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/72dba7ee-cd6b-4a1d-9a2f-068d1f11fa82" />
+
+
+### 纸页风格
+<img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/ec28f345-9d39-43f4-a622-a82f5caf484f" />
+
+
+### 报告风格
+<img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/56e3f4bd-62f6-443d-a8a9-c7acc6f22c1e" />
+
+
+### 卡片风格
+<img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/1779aad5-0da3-46ee-8984-5a014f8eb7ee" />
+
+## 快速导出美观可视化的文件 - PDF、MD、长图、HTML
+
+<img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/6b457afd-a470-4350-85ea-c314f8478723" />
+
+
+
 ## 当前状态
 
 - macOS：已可用
@@ -37,6 +63,7 @@ MarkGo 做的事很简单：站在 Markdown 源码和人的阅读之间，把文
 打开 DMG 后，把左边的 `MarkGo.app` 拖到右边的 `Applications`。
 
 如果 macOS 拦截首次打开，右键 `MarkGo`，选择“打开”。
+
 
 ## 开发
 
@@ -73,6 +100,9 @@ test-fixtures/              轻量测试和样本文档
 ./test-fixtures/run-headless-tests.sh
 swift test-fixtures/test-markdown-analysis.swift
 ```
+
+## 持续更新中
+各项细节正在优化迭代中，欢迎各位大佬提Issue和优化建议，感谢！
 
 ## License
 
