@@ -76,15 +76,23 @@ sleep 2
 section "Persistence"
 
 python3 - <<'PY' 2>&1 | sed 's/^/  /'
-import json, plistlib, os, sys
+import json, plistlib, os, sys, time
 plist_path = os.path.expanduser("~/Library/Preferences/com.oreo.MarkGo.plist")
+
+data = {}
+raw = None
+for _ in range(12):
+    if os.path.exists(plist_path):
+        with open(plist_path, 'rb') as f:
+            data = plistlib.load(f)
+        raw = data.get('markgo.recent.documents.v1')
+        if raw is not None:
+            break
+    time.sleep(0.5)
+
 if not os.path.exists(plist_path):
     print("✘ Preferences plist not written"); sys.exit(2)
 
-with open(plist_path, 'rb') as f:
-    data = plistlib.load(f)
-
-raw = data.get('markgo.recent.documents.v1')
 if raw is None:
     print("✘ No recent document entry written"); sys.exit(3)
 

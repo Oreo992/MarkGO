@@ -9,6 +9,35 @@ import CoreText
 import Foundation
 import UniformTypeIdentifiers
 
+let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+let exportRunnerURL = repoRoot.appendingPathComponent("MarkdownReaderMac/Features/Export/ExportRunner.swift")
+let exportRunnerSource = try String(contentsOf: exportRunnerURL, encoding: .utf8)
+
+func expect(_ condition: Bool, _ message: String) {
+    if condition {
+        print("✔ \(message)")
+    } else {
+        print("✘ \(message)")
+        exit(1)
+    }
+}
+
+expect(
+    exportRunnerSource.range(
+        of: #"canvasWidth:\s*pageSize\.size\.width\s*[,)]"#,
+        options: .regularExpression
+    ) == nil,
+    "PDF export does not render at raw page width, which makes text too large"
+)
+expect(
+    !exportRunnerSource.contains("let visibleHeightInImagePoints = pageSize.size.height"),
+    "PDF export does not hard-cut pages at raw page height"
+)
+expect(
+    exportRunnerSource.contains("nextPDFSliceHeight"),
+    "PDF export uses whitespace-aware page slicing"
+)
+
 let title = "MarkGo 导出验证"
 let body = """
 这是一段用于验证 PDF 导出修复的文字。

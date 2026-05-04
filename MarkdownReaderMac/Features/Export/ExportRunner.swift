@@ -27,7 +27,7 @@ enum ExportRunner {
             title: title,
             text: text,
             theme: theme,
-            canvasWidth: pageSize.size.width,
+            canvasWidth: pageSize.size.width * 2,
             sourceURL: sourceURL,
             watermark: watermark
         )
@@ -46,8 +46,10 @@ enum ExportRunner {
             throw ExportError.contextCreation
         }
 
+        let bitmap = NSBitmapImageRep(cgImage: cgImage)
         let sourceScale = CGFloat(cgImage.width) / max(1, imageSize.width)
-        let visibleHeightInImagePoints = pageSize.size.height
+        let outputScale = pageSize.size.width / max(1, imageSize.width)
+        let maxSliceHeight = pageSize.size.height / max(0.01, outputScale)
         var sourceY: CGFloat = 0
 
         while sourceY < imageSize.height {
@@ -56,7 +58,15 @@ enum ExportRunner {
             context.setFillColor(theme.backgroundColor.cgColor)
             context.fill(pageRect)
 
-            let sliceHeight = min(visibleHeightInImagePoints, imageSize.height - sourceY)
+            let remainingHeight = imageSize.height - sourceY
+            let sliceHeight = nextPDFSliceHeight(
+                bitmap: bitmap,
+                sourceScale: sourceScale,
+                sourceY: sourceY,
+                maxHeight: min(maxSliceHeight, remainingHeight),
+                remainingHeight: remainingHeight,
+                backgroundColor: theme.backgroundColor
+            )
             let cropRect = CGRect(
                 x: 0,
                 y: sourceY * sourceScale,
@@ -65,7 +75,16 @@ enum ExportRunner {
             ).integral
 
             if let slice = cgImage.cropping(to: cropRect) {
-                context.draw(slice, in: CGRect(x: 0, y: pageSize.size.height - sliceHeight, width: pageSize.size.width, height: sliceHeight))
+                let drawnHeight = sliceHeight * outputScale
+                context.draw(
+                    slice,
+                    in: CGRect(
+                        x: 0,
+                        y: pageSize.size.height - drawnHeight,
+                        width: pageSize.size.width,
+                        height: drawnHeight
+                    )
+                )
             }
 
             if watermark {
@@ -73,7 +92,7 @@ enum ExportRunner {
             }
 
             context.endPDFPage()
-            sourceY += visibleHeightInImagePoints
+            sourceY += max(1, sliceHeight)
         }
 
         context.closePDF()
@@ -194,6 +213,78 @@ enum ExportRunner {
         let image = NSImage(size: hostingView.bounds.size)
         image.addRepresentation(bitmap)
         return image
+    }
+
+    private static func nextPDFSliceHeight(
+        bitmap: NSBitmapImageRep,
+        sourceScale: CGFloat,
+        sourceY: CGFloat,
+        maxHeight: CGFloat,
+        remainingHeight: CGFloat,
+        backgroundColor: NSColor
+    ) -> CGFloat {
+        guard remainingHeight > maxHeight else { return remainingHeight }
+
+        let minimumHeight = max(240, maxHeight * 0.62)
+        let searchStart = max(minimumHeight, maxHeight * 0.74)
+        let searchEnd = max(searchStart, maxHeight * 0.98)
+        var bestHeight = maxHeight
+        var bestScore = 0.0
+
+        var candidate = searchEnd
+        while candidate >= searchStart {
+            let pixelY = Int(((sourceY + candidate) * sourceScale).rounded())
+            let score = whitespaceScore(
+                bitmap: bitmap,
+                pixelY: pixelY,
+                backgroundColor: backgroundColor
+            )
+
+            if score > bestScore {
+                bestScore = score
+                bestHeight = candidate
+            }
+            if score > 0.96 {
+                return candidate
+            }
+            candidate -= 10
+        }
+
+        return bestScore > 0.82 ? bestHeight : maxHeight
+    }
+
+    private static func whitespaceScore(
+        bitmap: NSBitmapImageRep,
+        pixelY: Int,
+        backgroundColor: NSColor
+    ) -> Double {
+        let background = backgroundColor.usingColorSpace(.deviceRGB) ?? backgroundColor
+        let yStart = max(0, pixelY - 5)
+        let yEnd = min(bitmap.pixelsHigh - 1, pixelY + 5)
+        let xStep = max(1, bitmap.pixelsWide / 44)
+        var samples = 0
+        var matches = 0
+
+        guard yStart <= yEnd else { return 0 }
+
+        for y in yStart...yEnd {
+            var x = 0
+            while x < bitmap.pixelsWide {
+                samples += 1
+                if let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) {
+                    let delta = abs(color.redComponent - background.redComponent)
+                        + abs(color.greenComponent - background.greenComponent)
+                        + abs(color.blueComponent - background.blueComponent)
+                    if delta < 0.18 {
+                        matches += 1
+                    }
+                }
+                x += xStep
+            }
+        }
+
+        guard samples > 0 else { return 0 }
+        return Double(matches) / Double(samples)
     }
 
     private static func askSaveURL(
