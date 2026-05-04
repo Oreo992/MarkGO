@@ -254,6 +254,10 @@ private struct MermaidBlockView: View {
     let accent: Color
 
     @State private var height: CGFloat = 260
+    @State private var zoom: CGFloat = 1.0
+
+    private let minimumScale: CGFloat = 0.55
+    private let maximumScale: CGFloat = 2.4
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -262,6 +266,47 @@ private struct MermaidBlockView: View {
                     .font(.caption2.weight(.black))
                     .foregroundStyle(accent)
                 Spacer()
+                Button {
+                    adjustZoom(-0.15)
+                } label: {
+                    Image(systemName: "minus.magnifyingglass")
+                        .font(.caption.weight(.bold))
+                        .frame(width: 26, height: 26)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(accent)
+                .disabled(zoom <= minimumScale)
+                .help("缩小 Mermaid 图")
+
+                Text("\(Int((zoom * 100).rounded()))%")
+                    .font(.caption2.weight(.black))
+                    .monospacedDigit()
+                    .foregroundStyle(accent)
+                    .frame(width: 42)
+
+                Button {
+                    adjustZoom(0.15)
+                } label: {
+                    Image(systemName: "plus.magnifyingglass")
+                        .font(.caption.weight(.bold))
+                        .frame(width: 26, height: 26)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(accent)
+                .disabled(zoom >= maximumScale)
+                .help("放大 Mermaid 图")
+
+                Button {
+                    zoom = 1.0
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.caption.weight(.bold))
+                        .frame(width: 26, height: 26)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(accent)
+                .help("重置 Mermaid 缩放")
+
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(source, forType: .string)
@@ -278,7 +323,7 @@ private struct MermaidBlockView: View {
             .padding(.horizontal, 14)
             .padding(.top, 12)
 
-            MermaidWebView(source: source, height: $height)
+            MermaidWebView(source: source, zoom: zoom, height: $height)
                 .frame(minHeight: 180, idealHeight: height, maxHeight: height)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)
@@ -292,10 +337,15 @@ private struct MermaidBlockView: View {
                 .stroke(accent.opacity(0.20), lineWidth: 1)
         )
     }
+
+    private func adjustZoom(_ delta: CGFloat) {
+        zoom = min(maximumScale, max(minimumScale, zoom + delta))
+    }
 }
 
 private struct MermaidWebView: NSViewRepresentable {
     let source: String
+    let zoom: CGFloat
     @Binding var height: CGFloat
 
     func makeCoordinator() -> Coordinator {
@@ -307,19 +357,30 @@ private struct MermaidWebView: NSViewRepresentable {
         userContentController.add(context.coordinator, name: "markgo")
 
         let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .default()
         configuration.userContentController = userContentController
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.setValue(false, forKey: "drawsBackground")
         webView.navigationDelegate = context.coordinator
+        context.coordinator.source = source
+        context.coordinator.zoom = zoom
         webView.loadHTMLString(htmlDocument(for: source), baseURL: nil)
         return webView
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
-        guard context.coordinator.source != source else { return }
-        context.coordinator.source = source
-        webView.loadHTMLString(htmlDocument(for: source), baseURL: nil)
+        if context.coordinator.source != source {
+            context.coordinator.source = source
+            context.coordinator.zoom = zoom
+            webView.loadHTMLString(htmlDocument(for: source), baseURL: nil)
+            return
+        }
+
+        guard context.coordinator.zoom != zoom else { return }
+        context.coordinator.zoom = zoom
+        let jsZoom = String(format: "%.3f", Double(zoom))
+        webView.evaluateJavaScript("setZoom(\(jsZoom));", completionHandler: nil)
     }
 
     private func htmlDocument(for source: String) -> String {
@@ -338,9 +399,16 @@ private struct MermaidWebView: NSViewRepresentable {
           background: transparent;
           font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
           color: #1d2324;
-          overflow: hidden;
+          overflow: auto;
         }
         body { padding: 12px; box-sizing: border-box; }
+        #diagram {
+          display: inline-block;
+          min-width: 100%;
+          transform-origin: top center;
+          transition: transform 120ms ease;
+          will-change: transform;
+        }
         svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
         pre {
           white-space: pre-wrap;
@@ -360,9 +428,12 @@ private struct MermaidWebView: NSViewRepresentable {
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
         <script>
         const source = \(encodedSource);
+        var currentZoom = 1;
 
         function postHeight() {
-          const height = Math.max(180, Math.ceil(document.documentElement.scrollHeight));
+          const diagram = document.getElementById("diagram");
+          const bounds = diagram ? diagram.getBoundingClientRect() : document.documentElement.getBoundingClientRect();
+          const height = Math.max(180, Math.ceil(bounds.height + 24));
           window.webkit.messageHandlers.markgo.postMessage({ type: "height", height });
         }
 
@@ -403,7 +474,19 @@ private struct MermaidWebView: NSViewRepresentable {
           return "markgo-mermaid-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1000000).toString(36);
         }
 
-        window.addEventListener("load", renderDiagram);
+        function setZoom(value) {
+          currentZoom = Math.max(0.55, Math.min(2.4, Number(value) || 1));
+          const diagram = document.getElementById("diagram");
+          if (!diagram) return;
+          diagram.style.transform = "scale(" + currentZoom + ")";
+          requestAnimationFrame(postHeight);
+          setTimeout(postHeight, 120);
+        }
+
+        window.addEventListener("load", async function() {
+          await renderDiagram();
+          setZoom(\(String(format: "%.3f", Double(zoom))));
+        });
         </script>
         </body>
         </html>
@@ -418,6 +501,7 @@ private struct MermaidWebView: NSViewRepresentable {
 
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         var source = ""
+        var zoom: CGFloat = 1.0
         private var height: Binding<CGFloat>
 
         init(height: Binding<CGFloat>) {
