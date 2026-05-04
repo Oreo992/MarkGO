@@ -42,6 +42,10 @@ MarkGo 做的事很简单：站在 Markdown 源码和人的阅读之间，把文
 <img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/56e3f4bd-62f6-443d-a8a9-c7acc6f22c1e" />
 
 
+### 讲义风格
+<img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/1e99e83a-4052-4279-af27-4730f4245354" />
+
+
 ### 卡片风格
 <img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/1779aad5-0da3-46ee-8984-5a014f8eb7ee" />
 
@@ -49,6 +53,9 @@ MarkGo 做的事很简单：站在 Markdown 源码和人的阅读之间，把文
 
 <img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/6b457afd-a470-4350-85ea-c314f8478723" />
 
+
+## 快速编辑
+<img width="3352" height="2168" alt="image" src="https://github.com/user-attachments/assets/d8e0f1ff-34ea-413e-a7ff-aed5e7b9ee06" />
 
 
 ## 当前状态
