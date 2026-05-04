@@ -382,7 +382,7 @@ private struct MermaidWebView: NSViewRepresentable {
                 tertiaryColor: "#f6efe4"
               }
             });
-            const result = await mermaid.render("markgo-mermaid-" + crypto.randomUUID(), source);
+            const result = await mermaid.render(makeDiagramId(), source);
             document.getElementById("diagram").innerHTML = result.svg;
             requestAnimationFrame(postHeight);
             setTimeout(postHeight, 120);
@@ -397,6 +397,10 @@ private struct MermaidWebView: NSViewRepresentable {
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;");
+        }
+
+        function makeDiagramId() {
+          return "markgo-mermaid-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1000000).toString(36);
         }
 
         window.addEventListener("load", renderDiagram);
