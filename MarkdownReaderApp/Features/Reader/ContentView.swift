@@ -75,6 +75,7 @@ struct HomeView: View {
             .onAppear {
                 recentDocuments = RecentDocumentStore.load()
             }
+            .preferredColorScheme(.light)
         }
     }
 
@@ -86,9 +87,8 @@ struct HomeView: View {
     private func openPastedText(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        let document = ReaderDocument(title: MarkdownAnalysis(text: trimmed).title, text: trimmed)
-        saveRecent(document, source: "粘贴")
-        activeDocument = document
+        let saved = saveRecent(title: MarkdownAnalysis(text: trimmed).title, text: trimmed, source: "粘贴")
+        activeDocument = ReaderDocument(title: saved.title, text: saved.text, recentID: saved.id, initialSectionID: saved.readingSectionID)
     }
 
     private func quickExport() {
@@ -98,19 +98,19 @@ struct HomeView: View {
 
     private func handleImportedFile(_ result: Result<[URL], Error>) {
         guard let loaded = loadFirstFile(result) else { return }
-        saveRecent(loaded, source: "文件")
+        let saved = saveRecent(title: loaded.title, text: loaded.text, source: "文件")
         switch importIntent {
         case .open:
-            activeDocument = ReaderDocument(title: loaded.title, text: loaded.text)
+            activeDocument = ReaderDocument(title: saved.title, text: saved.text, recentID: saved.id, initialSectionID: saved.readingSectionID)
         case .export:
-            exportDraft = ExportDraft(title: loaded.title, text: loaded.text)
+            exportDraft = ExportDraft(title: saved.title, text: saved.text)
         }
     }
 
     private func openRecent(_ recent: RecentDocument) {
         RecentDocumentStore.touch(recent.id)
         recentDocuments = RecentDocumentStore.load()
-        activeDocument = ReaderDocument(title: recent.title, text: recent.text)
+        activeDocument = ReaderDocument(title: recent.title, text: recent.text, recentID: recent.id, initialSectionID: recent.readingSectionID)
     }
 
     private func exportRecent(_ recent: RecentDocument) {
@@ -134,9 +134,10 @@ struct HomeView: View {
         recentDocuments = []
     }
 
-    private func saveRecent(_ document: ReaderDocument, source: String) {
-        RecentDocumentStore.save(title: document.title, text: document.text, source: source)
+    private func saveRecent(title: String, text: String, source: String) -> RecentDocument {
+        let saved = RecentDocumentStore.save(title: title, text: text, source: source)
         recentDocuments = RecentDocumentStore.load()
+        return saved
     }
 
     private func loadFirstFile(_ result: Result<[URL], Error>) -> ReaderDocument? {
@@ -454,15 +455,27 @@ private struct DockButton: View {
 private struct ReaderContainer: View {
     @Environment(\.dismiss) private var dismiss
     @State private var document: MarkdownDocument
+    private let recentID: UUID?
+    private let initialSectionID: String?
     private let title: String
 
     init(document: ReaderDocument) {
         self.title = document.title
+        self.recentID = document.recentID
+        self.initialSectionID = document.initialSectionID
         _document = State(initialValue: MarkdownDocument(text: document.text))
     }
 
     var body: some View {
-        ReaderView(document: $document, titleOverride: title) {
+        ReaderView(
+            document: $document,
+            titleOverride: title,
+            initialSectionID: initialSectionID,
+            onReadingPositionChange: { sectionID in
+                guard let recentID else { return }
+                RecentDocumentStore.updateReadingPosition(recentID, sectionID: sectionID)
+            }
+        ) {
             dismiss()
         }
     }
@@ -471,9 +484,11 @@ private struct ReaderContainer: View {
 struct ReaderView: View {
     @Binding var document: MarkdownDocument
     let titleOverride: String?
+    var initialSectionID: String?
+    var onReadingPositionChange: ((String) -> Void)?
     var onClose: (() -> Void)?
 
-    @State private var selectedMode: ReadingMode = .article
+    @State private var selectedMode: ReadingMode = .clear
     @State private var showOutline = false
     @State private var showExport = false
     @State private var isEditing = false
@@ -493,7 +508,9 @@ struct ReaderView: View {
                     ReaderSurface(
                         analysis: analysis,
                         selectedMode: selectedMode,
-                        showOutline: showOutline
+                        showOutline: showOutline,
+                        initialSectionID: initialSectionID,
+                        onReadingPositionChange: onReadingPositionChange
                     )
                 }
             }
@@ -547,6 +564,7 @@ struct ReaderView: View {
                 )
                 .presentationDetents([.medium, .large])
             }
+            .preferredColorScheme(.light)
         }
     }
 }
@@ -555,9 +573,13 @@ private struct ReaderSurface: View {
     let analysis: MarkdownAnalysis
     let selectedMode: ReadingMode
     let showOutline: Bool
+    let initialSectionID: String?
+    var onReadingPositionChange: ((String) -> Void)?
 
     @State private var scrollOffset: CGFloat = 0
     @State private var contentHeight: CGFloat = 1
+    @State private var currentSectionID: String?
+    @State private var didRestorePosition = false
 
     var body: some View {
         GeometryReader { viewport in
@@ -579,10 +601,19 @@ private struct ReaderSurface: View {
                                 .id("reader-top")
 
                             if showOutline {
-                                OutlinePanel(headings: analysis.headings) { id in
-                                    withAnimation(.smooth(duration: 0.32)) {
-                                        proxy.scrollTo(id, anchor: .top)
+                                OutlinePanel(
+                                    headings: analysis.headings,
+                                    currentSectionID: currentSectionID,
+                                    onTop: {
+                                        withAnimation(.smooth(duration: 0.32)) {
+                                            proxy.scrollTo("reader-top", anchor: .top)
+                                        }
                                     }
+                                ) { id in
+                                    withAnimation(.smooth(duration: 0.32)) {
+                                        proxy.scrollTo(id, anchor: .center)
+                                    }
+                                    onReadingPositionChange?(id)
                                 }
                                 .transition(.move(edge: .top).combined(with: .opacity))
                             }
@@ -606,9 +637,48 @@ private struct ReaderSurface: View {
                     .coordinateSpace(name: "readerScroll")
                     .onPreferenceChange(ScrollOffsetPreferenceKey.self) { scrollOffset = $0 }
                     .onPreferenceChange(ContentHeightPreferenceKey.self) { contentHeight = max(1, $0) }
+                    .onPreferenceChange(SectionPositionPreferenceKey.self) { positions in
+                        updateCurrentSection(positions)
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if readingProgress(viewportHeight: viewport.size.height) > 0.08 {
+                            Button {
+                                withAnimation(.smooth(duration: 0.32)) {
+                                    proxy.scrollTo("reader-top", anchor: .top)
+                                }
+                            } label: {
+                                Image(systemName: "arrow.up")
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 42, height: 42)
+                                    .background(selectedMode.accent, in: Circle())
+                                    .shadow(color: selectedMode.accent.opacity(0.24), radius: 12, x: 0, y: 8)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, 18)
+                            .padding(.bottom, 84)
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                    .onAppear {
+                        guard !didRestorePosition, let initialSectionID else { return }
+                        didRestorePosition = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                            withAnimation(.smooth(duration: 0.34)) {
+                                proxy.scrollTo(initialSectionID, anchor: .center)
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private func updateCurrentSection(_ positions: [String: CGFloat]) {
+        guard let nearest = positions.min(by: { abs($0.value - 120) < abs($1.value - 120) }) else { return }
+        guard currentSectionID != nearest.key else { return }
+        currentSectionID = nearest.key
+        onReadingPositionChange?(nearest.key)
     }
 
     private func readingProgress(viewportHeight: CGFloat) -> Double {
@@ -860,6 +930,17 @@ private extension View {
     func tintedSurface(_ tint: Color, radius: CGFloat = 24) -> some View {
         modifier(TintedSurfaceModifier(tint: tint, radius: radius))
     }
+
+    func trackSectionPosition(_ id: String) -> some View {
+        background(
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: SectionPositionPreferenceKey.self,
+                    value: [id: proxy.frame(in: .named("readerScroll")).minY]
+                )
+            }
+        )
+    }
 }
 
 private struct ReaderChromeTitle: View {
@@ -937,36 +1018,40 @@ private struct ExportAction: View {
 }
 
 private enum ExportStyle: String, CaseIterable, Identifiable {
+    case clear
     case paper
     case report
-    case note
+    case lesson
     case card
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .clear: "清读"
         case .paper: "纸张"
         case .report: "报告"
-        case .note: "手记"
+        case .lesson: "讲义"
         case .card: "卡片"
         }
     }
 
     var accent: Color {
         switch self {
+        case .clear: AppPalette.teal
         case .paper: AppPalette.cobalt
         case .report: AppPalette.plum
-        case .note: AppPalette.teal
+        case .lesson: AppPalette.gold
         case .card: AppPalette.rust
         }
     }
 
     var backgroundColor: UIColor {
         switch self {
+        case .clear: UIColor(red: 0.965, green: 0.948, blue: 0.910, alpha: 1)
         case .paper: UIColor(red: 0.985, green: 0.970, blue: 0.925, alpha: 1)
         case .report: UIColor(red: 0.950, green: 0.955, blue: 0.985, alpha: 1)
-        case .note: UIColor(red: 0.930, green: 0.965, blue: 0.955, alpha: 1)
+        case .lesson: UIColor(red: 0.965, green: 0.945, blue: 0.885, alpha: 1)
         case .card: UIColor(red: 0.980, green: 0.940, blue: 0.900, alpha: 1)
         }
     }
@@ -977,9 +1062,10 @@ private enum ExportStyle: String, CaseIterable, Identifiable {
 
     var accentColor: UIColor {
         switch self {
+        case .clear: UIColor(red: 0.22, green: 0.42, blue: 0.455, alpha: 1)
         case .paper: UIColor(red: 0.20, green: 0.31, blue: 0.62, alpha: 1)
         case .report: UIColor(red: 0.42, green: 0.30, blue: 0.56, alpha: 1)
-        case .note: UIColor(red: 0.22, green: 0.42, blue: 0.455, alpha: 1)
+        case .lesson: UIColor(red: 0.815, green: 0.610, blue: 0.235, alpha: 1)
         case .card: UIColor(red: 0.58, green: 0.31, blue: 0.18, alpha: 1)
         }
     }
@@ -1021,15 +1107,56 @@ private struct ReaderBody: View {
                     MarkdownSectionCard(section: section, selectedMode: selectedMode)
                 }
             }
-        case .report, .book:
+        case .paper:
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(sections) { section in
                     MarkdownSectionView(section: section, selectedMode: selectedMode)
                 }
             }
-            .padding(.vertical, selectedMode == .book ? 24 : 22)
+            .padding(.vertical, 28)
+            .padding(.horizontal, 26)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppPalette.paper)
+                    .shadow(color: .white.opacity(0.78), radius: 1, x: -1, y: -1)
+                    .shadow(color: AppPalette.ink.opacity(0.08), radius: 22, x: 0, y: 12)
+            )
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(selectedMode.accent.opacity(0.12))
+                    .frame(width: 7)
+                    .padding(.vertical, 18)
+            }
+        case .report:
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(sections) { section in
+                    MarkdownSectionView(section: section, selectedMode: selectedMode)
+                        .padding(.bottom, section.heading?.level == 1 ? 18 : 8)
+                }
+            }
+            .padding(.vertical, 34)
+            .padding(.horizontal, 30)
+            .tintedSurface(selectedMode.accent, radius: 22)
+        case .book:
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(sections) { section in
+                    HStack(alignment: .top, spacing: 14) {
+                        if let heading = section.heading {
+                            Text("\(heading.displayNumber)")
+                                .font(.caption.weight(.black))
+                                .foregroundStyle(selectedMode.accent)
+                                .frame(width: 32, alignment: .trailing)
+                                .padding(.top, 8)
+                        } else {
+                            Spacer().frame(width: 32)
+                        }
+                        MarkdownSectionView(section: section, selectedMode: selectedMode)
+                    }
+                }
+            }
+            .padding(.vertical, 26)
             .padding(.horizontal, 22)
-            .tintedSurface(selectedMode.accent, radius: selectedMode == .book ? 16 : 22)
+            .tintedSurface(selectedMode.accent, radius: 18)
         default:
             VStack(alignment: .leading, spacing: selectedMode.sectionSpacing) {
                 ForEach(sections) { section in
@@ -1046,10 +1173,11 @@ private struct MarkdownSectionView: View {
 
     var body: some View {
         Markdown(section.markdown)
-            .markdownTheme(.custom)
+            .markdownTheme(.reader(mode: selectedMode))
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(section.id)
+            .trackSectionPosition(section.id)
             .padding(.vertical, selectedMode.inlineSectionPadding)
     }
 }
@@ -1068,11 +1196,12 @@ private struct MarkdownSectionCard: View {
             }
 
             Markdown(section.bodyMarkdown.isEmpty ? section.markdown : section.bodyMarkdown)
-                .markdownTheme(.custom)
+                .markdownTheme(.reader(mode: selectedMode))
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .id(section.id)
+        .trackSectionPosition(section.id)
         .padding(18)
         .tintedSurface(selectedMode.accent, radius: 24)
     }
@@ -1087,12 +1216,12 @@ private struct ReaderHeader: View {
             ReaderChromeTitle(mode: selectedMode)
 
             Text(analysis.title)
-                .font(.system(size: 42, weight: .black, design: .rounded))
+                .font(.system(size: selectedMode == .report ? 38 : 42, weight: .black, design: selectedMode.bodyFontDesign))
                 .foregroundStyle(AppPalette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .minimumScaleFactor(0.78)
 
-            Text(analysis.subtitle)
+            Text("\(selectedMode.headerNote) · \(analysis.subtitle)")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppPalette.mutedInk)
         }
@@ -1102,18 +1231,26 @@ private struct ReaderHeader: View {
 
 private struct OutlinePanel: View {
     let headings: [MarkdownHeading]
+    let currentSectionID: String?
+    let onTop: () -> Void
     let onSelect: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Label("目录", systemImage: "list.bullet.indent")
-                    .font(.headline)
+                    .font(.title3.weight(.black))
                     .foregroundStyle(AppPalette.ink)
                 Spacer()
-                Text(headings.isEmpty ? "无标题" : "\(headings.count)")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                Button(action: onTop) {
+                    Label("顶部", systemImage: "arrow.up")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AppPalette.teal)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(AppPalette.teal.opacity(0.10), in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
 
             if headings.isEmpty {
@@ -1121,25 +1258,27 @@ private struct OutlinePanel: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(headings.prefix(10)) { heading in
+                ForEach(headings) { heading in
                     Button { onSelect(heading.sectionID) } label: {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(AppPalette.teal)
-                                .frame(width: 7, height: 7)
-                                .padding(.leading, CGFloat(max(0, heading.level - 1)) * 10)
+                        HStack(spacing: 10) {
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(currentSectionID == heading.sectionID ? AppPalette.teal : AppPalette.line)
+                                .frame(width: currentSectionID == heading.sectionID ? 8 : 5, height: 18)
+                                .padding(.leading, CGFloat(max(0, heading.level - 1)) * 12)
                             Text(heading.title)
-                                .font(.subheadline.weight(heading.level <= 2 ? .semibold : .regular))
+                                .font(.body.weight(heading.level <= 2 ? .bold : .semibold))
                                 .foregroundStyle(heading.level <= 2 ? AppPalette.ink : .secondary)
                                 .lineLimit(1)
                             Spacer()
                         }
+                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
-        .padding(16)
+        .padding(18)
         .tintedSurface(AppPalette.teal, radius: 22)
     }
 }
@@ -1161,9 +1300,9 @@ private struct ReadingProgressBar: View {
     }
 }
 
-private enum ReadingMode: String, CaseIterable, Identifiable {
-    case article
-    case manual
+enum ReadingMode: String, CaseIterable, Identifiable {
+    case clear
+    case paper
     case book
     case report
     case cards
@@ -1172,9 +1311,9 @@ private enum ReadingMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .article: "文章"
-        case .manual: "手册"
-        case .book: "书本"
+        case .clear: "清读"
+        case .paper: "纸页"
+        case .book: "讲义"
         case .report: "报告"
         case .cards: "卡片"
         }
@@ -1182,8 +1321,8 @@ private enum ReadingMode: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .article: "text.alignleft"
-        case .manual: "terminal"
+        case .clear: "text.alignleft"
+        case .paper: "doc.text"
         case .book: "book"
         case .report: "doc.richtext"
         case .cards: "rectangle.grid.1x2"
@@ -1192,9 +1331,9 @@ private enum ReadingMode: String, CaseIterable, Identifiable {
 
     var accent: Color {
         switch self {
-        case .article: AppPalette.teal
-        case .manual: Color(red: 0.24, green: 0.34, blue: 0.42)
-        case .book: Color(red: 0.54, green: 0.34, blue: 0.25)
+        case .clear: AppPalette.teal
+        case .paper: Color(red: 0.54, green: 0.34, blue: 0.25)
+        case .book: AppPalette.gold
         case .report: Color(red: 0.34, green: 0.29, blue: 0.55)
         case .cards: AppPalette.rust
         }
@@ -1202,9 +1341,9 @@ private enum ReadingMode: String, CaseIterable, Identifiable {
 
     var background: Color {
         switch self {
-        case .article: AppPalette.canvas
-        case .manual: Color(red: 0.93, green: 0.95, blue: 0.95)
-        case .book: Color(red: 0.96, green: 0.93, blue: 0.87)
+        case .clear: AppPalette.canvas
+        case .paper: Color(red: 0.96, green: 0.93, blue: 0.87)
+        case .book: Color(red: 0.965, green: 0.945, blue: 0.885)
         case .report: Color(red: 0.95, green: 0.95, blue: 0.98)
         case .cards: Color(red: 0.97, green: 0.94, blue: 0.90)
         }
@@ -1212,29 +1351,53 @@ private enum ReadingMode: String, CaseIterable, Identifiable {
 
     var contentWidth: CGFloat {
         switch self {
-        case .manual: 860
-        case .report: 740
+        case .book: 720
+        case .report: 760
         case .cards: 540
         default: 680
         }
     }
 
-    var horizontalPadding: CGFloat { 24 }
+    var horizontalPadding: CGFloat {
+        switch self {
+        case .cards: 18
+        case .report: 22
+        default: 24
+        }
+    }
 
     var sectionSpacing: CGFloat {
         switch self {
         case .cards: 18
-        case .manual: 14
-        case .report: 8
-        case .book: 6
-        case .article: 18
+        case .book: 22
+        case .report: 18
+        case .paper: 10
+        case .clear: 18
         }
     }
 
     var inlineSectionPadding: CGFloat {
         switch self {
-        case .manual: 2
+        case .report: 8
+        case .book: 6
         default: 0
+        }
+    }
+
+    var bodyFontDesign: Font.Design {
+        switch self {
+        case .paper, .book: .serif
+        default: .default
+        }
+    }
+
+    var headerNote: String {
+        switch self {
+        case .clear: "安静阅读"
+        case .paper: "纸页长读"
+        case .book: "分节讲义"
+        case .report: "正式交付"
+        case .cards: "扫读分享"
         }
     }
 }
@@ -1280,6 +1443,7 @@ private struct MarkdownHeading: Identifiable {
     let sectionID: String
     let level: Int
     let title: String
+    let displayNumber: Int
 }
 
 private struct MarkdownSection: Identifiable {
@@ -1336,7 +1500,7 @@ private struct MarkdownSection: Identifiable {
         let title = raw.dropFirst(count).trimmingCharacters(in: .whitespaces)
         guard !title.isEmpty else { return nil }
         let id = "section-\(sectionIndex)"
-        return MarkdownHeading(id: id, sectionID: id, level: count, title: title)
+        return MarkdownHeading(id: id, sectionID: id, level: count, title: title, displayNumber: sectionIndex + 1)
     }
 }
 
@@ -1344,6 +1508,8 @@ private struct ReaderDocument: Identifiable {
     let id = UUID()
     let title: String
     let text: String
+    var recentID: UUID? = nil
+    var initialSectionID: String? = nil
 }
 
 private struct RecentDocument: Identifiable, Codable {
@@ -1353,6 +1519,7 @@ private struct RecentDocument: Identifiable, Codable {
     var source: String
     var openedAt: Date
     var isPinned: Bool
+    var readingSectionID: String?
 
     var readingTime: String {
         let count = text.filter { !$0.isWhitespace }.count
@@ -1378,7 +1545,8 @@ private enum RecentDocumentStore {
         }
     }
 
-    static func save(title: String, text: String, source: String) {
+    @discardableResult
+    static func save(title: String, text: String, source: String) -> RecentDocument {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedTitle = trimmedTitle.isEmpty ? MarkdownAnalysis(text: text).title : trimmedTitle
         var documents = load()
@@ -1388,21 +1556,23 @@ private enum RecentDocumentStore {
             documents[index].text = text
             documents[index].source = source
             documents[index].openedAt = Date()
+            let saved = documents[index]
+            persist(Array(documents.sortedForRecent().prefix(limit)))
+            return saved
         } else {
-            documents.insert(
-                RecentDocument(
-                    id: UUID(),
-                    title: resolvedTitle,
-                    text: text,
-                    source: source,
-                    openedAt: Date(),
-                    isPinned: false
-                ),
-                at: 0
+            let saved = RecentDocument(
+                id: UUID(),
+                title: resolvedTitle,
+                text: text,
+                source: source,
+                openedAt: Date(),
+                isPinned: false,
+                readingSectionID: nil
             )
+            documents.insert(saved, at: 0)
+            persist(Array(documents.sortedForRecent().prefix(limit)))
+            return saved
         }
-
-        persist(Array(documents.sortedForRecent().prefix(limit)))
     }
 
     static func touch(_ id: UUID) {
@@ -1417,6 +1587,13 @@ private enum RecentDocumentStore {
         guard let index = documents.firstIndex(where: { $0.id == id }) else { return }
         documents[index].isPinned.toggle()
         documents[index].openedAt = Date()
+        persist(documents.sortedForRecent())
+    }
+
+    static func updateReadingPosition(_ id: UUID, sectionID: String) {
+        var documents = load()
+        guard let index = documents.firstIndex(where: { $0.id == id }) else { return }
+        documents[index].readingSectionID = sectionID
         persist(documents.sortedForRecent())
     }
 
@@ -1538,8 +1715,20 @@ private enum ExportRenderer {
         titleSize: CGFloat
     ) -> NSMutableAttributedString {
         let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = bodySize * 0.36
-        paragraph.paragraphSpacing = bodySize * 0.54
+        switch style {
+        case .report:
+            paragraph.lineSpacing = bodySize * 0.50
+            paragraph.paragraphSpacing = bodySize * 0.86
+        case .lesson:
+            paragraph.lineSpacing = bodySize * 0.44
+            paragraph.paragraphSpacing = bodySize * 0.70
+        case .card:
+            paragraph.lineSpacing = bodySize * 0.40
+            paragraph.paragraphSpacing = bodySize * 0.78
+        default:
+            paragraph.lineSpacing = bodySize * 0.36
+            paragraph.paragraphSpacing = bodySize * 0.54
+        }
 
         let attributed = NSMutableAttributedString(
             string: "\(title)\n\n\(text)",
@@ -1582,6 +1771,14 @@ private struct ContentHeightPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+private struct SectionPositionPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 

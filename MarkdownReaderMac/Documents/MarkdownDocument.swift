@@ -5,7 +5,12 @@ import UniformTypeIdentifiers
 /// UTF-8 text and forwards the contents into `ReaderRoot`.
 struct MarkdownDocument: FileDocument {
     static var readableContentTypes: [UTType] {
-        [.markdown, .plainText, .text]
+        [
+            .markdown,
+            .plainText,
+            .text,
+            UTType("public.source-code") ?? .text
+        ]
     }
 
     static var writableContentTypes: [UTType] {
@@ -15,7 +20,7 @@ struct MarkdownDocument: FileDocument {
     var text: String
 
     init(text: String = "") {
-        self.text = text
+        self.text = MarkdownSection.normalize(text)
     }
 
     init(configuration: ReadConfiguration) throws {
@@ -23,11 +28,11 @@ struct MarkdownDocument: FileDocument {
               let string = String(data: data, encoding: .utf8) else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        self.text = string
+        self.text = MarkdownSection.normalize(string)
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        guard let data = text.data(using: .utf8) else {
+        guard let data = MarkdownSection.normalize(text).data(using: .utf8) else {
             throw CocoaError(.fileWriteUnknown)
         }
         return FileWrapper(regularFileWithContents: data)

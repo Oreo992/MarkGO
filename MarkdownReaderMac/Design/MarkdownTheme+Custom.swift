@@ -1,26 +1,48 @@
 import SwiftUI
 import MarkdownUI
+import AppKit
 
 extension Theme {
     /// Reading theme aligned with the iOS app: editorial paper background,
     /// quiet code blocks, and Chinese-aware spacing.
-    static let custom = Theme.scaled(1.0)
+    static let custom = Theme.reader(mode: .clear, scale: 1.0)
 
     /// Returns a copy of the editorial reading theme whose body font scales
     /// uniformly. MarkdownUI ignores SwiftUI's `.font` modifier on
     /// `Markdown` views, so we have to bake the size into the theme.
     static func scaled(_ factor: CGFloat) -> Theme {
-        Theme()
+        .reader(mode: .clear, scale: factor)
+    }
+
+    static func reader(mode: ReadingMode, scale factor: CGFloat, includeCodeCopy: Bool = true) -> Theme {
+        let accent = mode.accent
+        let bodySize: CGFloat = {
+            switch mode {
+            case .report: 16.5
+            case .paper, .lesson: 17.5
+            default: 16.5
+            }
+        }()
+        let paragraphBottom: Double = {
+            switch mode {
+            case .report: 24
+            case .lesson: 20
+            case .cards: 14
+            default: 18
+            }
+        }()
+
+        return Theme()
         .text {
             ForegroundColor(Color(red: 0.12, green: 0.13, blue: 0.13))
             BackgroundColor(.clear)
-            FontSize(16 * factor)
+            FontSize(bodySize * factor)
         }
         .strong {
             FontWeight(.semibold)
         }
         .link {
-            ForegroundColor(Color(red: 0.16, green: 0.38, blue: 0.42))
+            ForegroundColor(accent)
         }
         .code {
             FontFamilyVariant(.monospaced)
@@ -31,34 +53,34 @@ extension Theme {
         .paragraph { configuration in
             configuration.label
                 .fixedSize(horizontal: false, vertical: true)
-                .relativeLineSpacing(.em(0.34))
-                .markdownMargin(top: 0, bottom: 18)
+                .relativeLineSpacing(.em(mode == .report ? 0.44 : 0.34))
+                .markdownMargin(top: 0, bottom: paragraphBottom)
         }
         .heading1 { configuration in
             configuration.label
                 .fixedSize(horizontal: false, vertical: true)
                 .relativeLineSpacing(.em(0.12))
-                .markdownMargin(top: 12, bottom: 22)
+                .markdownMargin(top: mode == .report ? 20 : 12, bottom: mode == .report ? 30 : 22)
                 .markdownTextStyle {
                     FontWeight(.bold)
-                    FontSize(.em(2.10))
+                    FontSize(.em(mode == .cards ? 1.72 : 2.10))
                 }
         }
         .heading2 { configuration in
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: mode == .report ? 14 : 10) {
                 configuration.label
                     .fixedSize(horizontal: false, vertical: true)
                     .relativeLineSpacing(.em(0.12))
                     .markdownTextStyle {
-                        FontWeight(.semibold)
-                        FontSize(.em(1.52))
+                        FontWeight(mode == .report ? .bold : .semibold)
+                        FontSize(.em(mode == .report ? 1.60 : 1.52))
                     }
 
                 Rectangle()
-                    .fill(Color(red: 0.22, green: 0.42, blue: 0.44).opacity(0.32))
-                    .frame(width: 44, height: 2)
+                    .fill(accent.opacity(mode == .report ? 0.44 : 0.32))
+                    .frame(width: mode == .report ? 76 : 44, height: mode == .report ? 3 : 2)
             }
-            .markdownMargin(top: 28, bottom: 16)
+            .markdownMargin(top: mode == .report ? 38 : 28, bottom: mode == .report ? 24 : 16)
         }
         .heading3 { configuration in
             configuration.label
@@ -100,7 +122,7 @@ extension Theme {
         .blockquote { configuration in
             HStack(alignment: .top, spacing: 14) {
                 Capsule()
-                    .fill(Color(red: 0.23, green: 0.44, blue: 0.47))
+                    .fill(accent)
                     .frame(width: 4)
 
                 configuration.label
@@ -111,34 +133,59 @@ extension Theme {
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
             .background(
-                Color(red: 0.94, green: 0.92, blue: 0.86),
+                accent.opacity(mode == .report ? 0.075 : 0.10),
                 in: RoundedRectangle(cornerRadius: 16, style: .continuous)
             )
             .fixedSize(horizontal: false, vertical: true)
-            .markdownMargin(top: 4, bottom: 18)
+            .markdownMargin(top: 4, bottom: mode == .report ? 24 : 18)
         }
         .codeBlock { configuration in
-            ScrollView(.horizontal) {
-                configuration.label
-                    .fixedSize(horizontal: false, vertical: true)
-                    .relativeLineSpacing(.em(0.28))
-                    .markdownTextStyle {
-                        FontFamilyVariant(.monospaced)
-                        FontSize(.em(0.86))
-                        ForegroundColor(Color(red: 0.17, green: 0.19, blue: 0.19))
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text(configuration.language?.uppercased() ?? "CODE")
+                        .font(.caption2.weight(.black))
+                        .foregroundStyle(accent)
+                    Spacer()
+                    if includeCodeCopy {
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(configuration.content, forType: .string)
+                        } label: {
+                            Label("复制", systemImage: "doc.on.doc")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(accent)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 6)
+                                .background(accent.opacity(0.10), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 18)
-                    .padding(.horizontal, 18)
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+
+                ScrollView(.horizontal) {
+                    configuration.label
+                        .fixedSize(horizontal: false, vertical: true)
+                        .relativeLineSpacing(.em(0.30))
+                        .markdownTextStyle {
+                            FontFamilyVariant(.monospaced)
+                            FontSize(.em(mode == .report ? 0.82 : 0.86))
+                            ForegroundColor(Color(red: 0.17, green: 0.19, blue: 0.19))
+                        }
+                        .padding(.vertical, 16)
+                        .padding(.horizontal, 16)
+                }
             }
             .background(
-                Color(red: 0.90, green: 0.88, blue: 0.82),
+                Color(red: 0.90, green: 0.88, blue: 0.82).opacity(mode == .report ? 0.72 : 1),
                 in: RoundedRectangle(cornerRadius: 18, style: .continuous)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color(red: 0.75, green: 0.70, blue: 0.60).opacity(0.36), lineWidth: 1)
+                    .stroke(accent.opacity(0.20), lineWidth: 1)
             )
-            .markdownMargin(top: 2, bottom: 20)
+            .markdownMargin(top: 2, bottom: mode == .report ? 28 : 20)
         }
         .listItem { configuration in
             configuration.label
@@ -147,7 +194,7 @@ extension Theme {
         .taskListMarker { configuration in
             Image(systemName: configuration.isCompleted ? "checkmark.square.fill" : "square")
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Color(red: 0.22, green: 0.43, blue: 0.45))
+                .foregroundStyle(accent)
                 .imageScale(.small)
                 .relativeFrame(minWidth: .em(1.5), alignment: .trailing)
         }
@@ -178,7 +225,7 @@ extension Theme {
         }
         .thematicBreak {
             Rectangle()
-                .fill(Color(red: 0.76, green: 0.72, blue: 0.64).opacity(0.45))
+                .fill(accent.opacity(0.22))
                 .frame(height: 1)
                 .markdownMargin(top: 26, bottom: 26)
         }

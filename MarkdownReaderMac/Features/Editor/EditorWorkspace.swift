@@ -10,6 +10,7 @@ struct EditorWorkspace: View {
     let selectedMode: ReadingMode
     @Binding var editorLayout: EditorLayout
     let fontScale: CGFloat
+    let documentURL: URL?
     @Binding var pendingScrollID: String?
 
     var body: some View {
@@ -32,6 +33,7 @@ struct EditorWorkspace: View {
                     text: text,
                     selectedMode: selectedMode,
                     fontScale: fontScale,
+                    documentURL: documentURL,
                     pendingScrollID: $pendingScrollID
                 )
             case .split:
@@ -42,6 +44,7 @@ struct EditorWorkspace: View {
                         text: text,
                         selectedMode: selectedMode,
                         fontScale: fontScale,
+                        documentURL: documentURL,
                         pendingScrollID: $pendingScrollID
                     )
                     .frame(minWidth: 360, idealWidth: 540)
@@ -129,7 +132,16 @@ struct SourceEditor: NSViewRepresentable {
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
-            text = textView.string
+            let normalized = MarkdownSection.normalize(textView.string)
+            if normalized != textView.string {
+                let selectedRange = textView.selectedRange()
+                textView.string = normalized
+                textView.setSelectedRange(NSRange(
+                    location: min(selectedRange.location, (normalized as NSString).length),
+                    length: 0
+                ))
+            }
+            text = normalized
         }
     }
 }
@@ -251,11 +263,12 @@ private struct PreviewPane: View {
     let text: String
     let selectedMode: ReadingMode
     let fontScale: CGFloat
+    let documentURL: URL?
     @Binding var pendingScrollID: String?
+    @StateObject private var navigationState = ReaderNavigationState()
+    @State private var analysis: MarkdownAnalysis = MarkdownAnalysis(text: "")
 
     var body: some View {
-        let analysis = MarkdownAnalysis(text: text)
-
         ZStack {
             selectedMode.background.ignoresSafeArea()
 
@@ -263,8 +276,19 @@ private struct PreviewPane: View {
                 analysis: analysis,
                 selectedMode: selectedMode,
                 fontScale: fontScale,
-                pendingScrollID: $pendingScrollID
+                documentURL: documentURL,
+                pendingScrollID: $pendingScrollID,
+                navigationState: navigationState,
+                onReadingPositionChange: { _ in }
             )
+        }
+        .onAppear {
+            analysis = MarkdownAnalysis(text: text)
+        }
+        .task(id: text) {
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            if Task.isCancelled { return }
+            analysis = MarkdownAnalysis(text: text)
         }
     }
 }

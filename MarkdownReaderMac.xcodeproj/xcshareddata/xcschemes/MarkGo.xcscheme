@@ -15,8 +15,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "B00000000000000000000600"
-               BuildableName = "MarkLens.app"
-               BlueprintName = "MarkLens"
+               BuildableName = "MarkGo.app"
+               BlueprintName = "MarkGo"
                ReferencedContainer = "container:MarkdownReaderMac.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,8 +45,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "B00000000000000000000600"
-            BuildableName = "MarkLens.app"
-            BlueprintName = "MarkLens"
+            BuildableName = "MarkGo.app"
+            BlueprintName = "MarkGo"
             ReferencedContainer = "container:MarkdownReaderMac.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -62,8 +62,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "B00000000000000000000600"
-            BuildableName = "MarkLens.app"
-            BlueprintName = "MarkLens"
+            BuildableName = "MarkGo.app"
+            BlueprintName = "MarkGo"
             ReferencedContainer = "container:MarkdownReaderMac.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

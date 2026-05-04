@@ -6,7 +6,7 @@
 import AppKit
 import Foundation
 
-let title = "MarkLens 长图导出验证"
+let title = "MarkGo 长图导出验证"
 let body = """
 长图导出应当能在不弹出 GUI 的情况下生成 PNG。
 - 暖纸色背景
@@ -80,7 +80,7 @@ guard let tiffData = image.tiffRepresentation,
     exit(2)
 }
 
-let outputURL = URL(fileURLWithPath: "/tmp/marklens-image-check.png")
+let outputURL = URL(fileURLWithPath: "/tmp/markgo-image-check.png")
 try? FileManager.default.removeItem(at: outputURL)
 try data.write(to: outputURL)
 print("✔ Wrote PNG to \(outputURL.path) (\(data.count) bytes)")

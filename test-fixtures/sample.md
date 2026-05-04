@@ -1,10 +1,10 @@
-# MarkLens 功能验证文档
+# MarkGo 功能验证文档
 
 这是一份用于功能测试的 Markdown，覆盖标题层级、段落、列表、引用、代码、表格、链接等核心元素。
 
-## 一、典型产品文档
+**## 一、典型产品文档**
 
-> MarkLens 的目标：让别人发来的 .md，第一秒就变成一篇可阅读的成品；让 AI 输出的 Markdown，能被直接当作 PDF、长图、富文本发出去。
+> MarkGo 的目标：让别人发来的 .md，第一秒就变成一篇可阅读的成品；让 AI 输出的 Markdown，能被直接当作 PDF、长图、富文本发出去。
 
 ### 1. 五种阅读形态
 
@@ -75,4 +75,4 @@ This is a paragraph mixing 中文和英文 with some `inline code` to verify spa
 
 ## 总结
 
-MarkLens 把 .md 从源文件变成可阅读、可分享、可交付的成品。下载即用，开源免费，无需 App Store。
+MarkGo 把 .md 从源文件变成可阅读、可分享、可交付的成品。下载即用，开源免费，无需 App Store。

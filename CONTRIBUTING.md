@@ -1,6 +1,6 @@
-# Contributing to MarkLens
+# Contributing to MarkGo
 
-Thanks for your interest in MarkLens. This project keeps a few practices that
+Thanks for your interest in MarkGo. This project keeps a few practices that
 make collaboration easier.
 
 ## Quick Start
@@ -31,7 +31,7 @@ open MarkdownReaderMac.xcodeproj
 ```bash
 xcodebuild \
   -project MarkdownReaderMac.xcodeproj \
-  -scheme MarkLens \
+  -scheme MarkGo \
   -configuration Debug \
   -destination 'platform=macOS' \
   build

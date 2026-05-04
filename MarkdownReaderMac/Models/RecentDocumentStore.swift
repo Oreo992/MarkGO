@@ -12,6 +12,7 @@ struct RecentDocument: Identifiable, Codable, Hashable {
     var isPinned: Bool
     var fileBookmark: Data?
     var characterCount: Int
+    var readingSectionID: String?
 
     var readingTime: String {
         "\(max(1, characterCount / 450)) 分钟"
@@ -19,7 +20,7 @@ struct RecentDocument: Identifiable, Codable, Hashable {
 }
 
 enum RecentDocumentStore {
-    private static let key = "marklens.recent.documents.v1"
+    private static let key = "markgo.recent.documents.v1"
     private static let limit = 24
 
     static func load() -> [RecentDocument] {
@@ -76,7 +77,8 @@ enum RecentDocumentStore {
                 openedAt: Date(),
                 isPinned: false,
                 fileBookmark: bookmark,
-                characterCount: characterCount
+                characterCount: characterCount,
+                readingSectionID: nil
             )
             documents.insert(new, at: 0)
             document = new
@@ -90,6 +92,33 @@ enum RecentDocumentStore {
         var documents = load()
         guard let index = documents.firstIndex(where: { $0.id == id }) else { return }
         documents[index].openedAt = Date()
+        persist(documents.sortedForRecent())
+    }
+
+    static func find(title: String, fileURL: URL?) -> RecentDocument? {
+        let bookmark = fileURL.flatMap {
+            try? $0.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+        }
+        return load().first { existing in
+            if let bookmark, let existingBookmark = existing.fileBookmark {
+                return existingBookmark == bookmark
+            }
+            return existing.title == title
+        }
+    }
+
+    static func updateReadingPosition(title: String, fileURL: URL?, sectionID: String) {
+        var documents = load()
+        let bookmark = fileURL.flatMap {
+            try? $0.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+        }
+        guard let index = documents.firstIndex(where: { existing in
+            if let bookmark, let existingBookmark = existing.fileBookmark {
+                return existingBookmark == bookmark
+            }
+            return existing.title == title
+        }) else { return }
+        documents[index].readingSectionID = sectionID
         persist(documents.sortedForRecent())
     }
 

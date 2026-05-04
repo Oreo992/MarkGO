@@ -11,6 +11,7 @@ struct ExportPanel: View {
     let title: String
     let text: String
     let style: ReadingMode
+    let sourceURL: URL?
 
     @State private var selectedTheme: ExportTheme = .paper
     @State private var pageSize: ExportPageSize = .a4
@@ -203,7 +204,7 @@ struct ExportPanel: View {
         if request == .pdf || request == .longImage {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(title: "其他")
-                Toggle("加上 MarkLens 水印", isOn: $includeWatermark)
+                Toggle("加上 MarkGo 水印", isOn: $includeWatermark)
             }
         }
     }
@@ -217,6 +218,7 @@ struct ExportPanel: View {
                     text: text,
                     theme: selectedTheme,
                     pageSize: pageSize,
+                    sourceURL: sourceURL,
                     watermark: includeWatermark
                 )
                 status = .success(url)
@@ -226,6 +228,7 @@ struct ExportPanel: View {
                     text: text,
                     theme: selectedTheme,
                     width: imageWidth,
+                    sourceURL: sourceURL,
                     watermark: includeWatermark
                 )
                 status = .success(url)

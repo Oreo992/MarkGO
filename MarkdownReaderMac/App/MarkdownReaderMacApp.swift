@@ -5,10 +5,12 @@ struct MarkdownReaderMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        WindowGroup("MarkLens", id: "library") {
+        WindowGroup("MarkGo", id: "library") {
             LibraryWindow()
                 .frame(minWidth: 880, minHeight: 580)
+                .preferredColorScheme(.light)
                 .background(WindowAccessor { window in
+                    window.appearance = NSAppearance(named: .aqua)
                     window.titlebarAppearsTransparent = true
                     window.titleVisibility = .hidden
                     window.isMovableByWindowBackground = true
@@ -24,8 +26,11 @@ struct MarkdownReaderMacApp: App {
         DocumentGroup(viewing: MarkdownDocument.self) { file in
             DocumentReaderRoot(document: file.$document, fileURL: file.fileURL)
                 .frame(minWidth: 900, minHeight: 600)
+                .preferredColorScheme(.light)
                 .background(WindowAccessor { window in
+                    window.appearance = NSAppearance(named: .aqua)
                     window.titlebarAppearsTransparent = true
+                    window.tabbingMode = .preferred
                 })
         }
         .commands {
@@ -40,7 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSWindow.allowsAutomaticWindowTabbing = false
+        NSWindow.allowsAutomaticWindowTabbing = true
+        NSApp.appearance = NSAppearance(named: .aqua)
     }
 }
 

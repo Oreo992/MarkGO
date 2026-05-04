@@ -1,5 +1,7 @@
 import AppKit
 import CoreText
+import SwiftUI
+import MarkdownUI
 import UniformTypeIdentifiers
 
 /// Runs the actual export by drawing into PDF, PNG, or HTML targets and
@@ -12,6 +14,7 @@ enum ExportRunner {
         text: String,
         theme: ExportTheme,
         pageSize: ExportPageSize,
+        sourceURL: URL?,
         watermark: Bool
     ) throws -> URL {
         let url = try askSaveURL(
@@ -20,14 +23,16 @@ enum ExportRunner {
             contentType: .pdf
         )
 
-        var pageRect = CGRect(origin: .zero, size: pageSize.size)
-        let body = makeAttributedBody(
+        let renderedImage = try makeRenderedMarkdownImage(
             title: title,
             text: text,
             theme: theme,
-            bodySize: 11,
-            titleSize: 24
+            canvasWidth: pageSize.size.width,
+            sourceURL: sourceURL,
+            watermark: watermark
         )
+        let imageSize = renderedImage.size
+        var pageRect = CGRect(origin: .zero, size: pageSize.size)
 
         guard let context = CGContext(
             url as CFURL,
@@ -37,34 +42,39 @@ enum ExportRunner {
             throw ExportError.contextCreation
         }
 
-        var range = CFRange(location: 0, length: 0)
-        let framesetter = CTFramesetterCreateWithAttributedString(body)
+        guard let cgImage = renderedImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            throw ExportError.contextCreation
+        }
 
-        repeat {
+        let sourceScale = CGFloat(cgImage.width) / max(1, imageSize.width)
+        let visibleHeightInImagePoints = pageSize.size.height
+        var sourceY: CGFloat = 0
+
+        while sourceY < imageSize.height {
             context.beginPDFPage(nil)
 
-            // CGContext PDF coordinate system has the origin in the bottom-left.
-            // Set the fill via the CGContext directly so it does not depend on
-            // an active NSGraphicsContext (which is what NSColor.setFill needs).
             context.setFillColor(theme.backgroundColor.cgColor)
             context.fill(pageRect)
 
-            // Build the layout path in PDF coordinates. CTFrame begins drawing
-            // from the path's top edge by default, so the text reads top-down
-            // without any axis flipping.
-            let path = CGMutablePath()
-            path.addRect(pageRect.insetBy(dx: 48, dy: 56))
-            let frame = CTFramesetterCreateFrame(framesetter, range, path, nil)
-            CTFrameDraw(frame, context)
+            let sliceHeight = min(visibleHeightInImagePoints, imageSize.height - sourceY)
+            let cropRect = CGRect(
+                x: 0,
+                y: sourceY * sourceScale,
+                width: imageSize.width * sourceScale,
+                height: sliceHeight * sourceScale
+            ).integral
+
+            if let slice = cgImage.cropping(to: cropRect) {
+                context.draw(slice, in: CGRect(x: 0, y: pageSize.size.height - sliceHeight, width: pageSize.size.width, height: sliceHeight))
+            }
 
             if watermark {
                 drawWatermark(in: context, pageRect: pageRect, theme: theme)
             }
 
             context.endPDFPage()
-            let visible = CTFrameGetVisibleStringRange(frame)
-            range.location += visible.length
-        } while range.location < body.length
+            sourceY += visibleHeightInImagePoints
+        }
 
         context.closePDF()
         return url
@@ -75,6 +85,7 @@ enum ExportRunner {
         text: String,
         theme: ExportTheme,
         width: ImageWidth,
+        sourceURL: URL?,
         watermark: Bool
     ) throws -> URL {
         let url = try askSaveURL(
@@ -83,71 +94,14 @@ enum ExportRunner {
             contentType: .png
         )
         let canvasWidth: CGFloat = width.width
-        let horizontalPadding: CGFloat = canvasWidth * 0.066
-        let contentWidth = canvasWidth - horizontalPadding * 2
-        let bodyFontSize: CGFloat = canvasWidth >= 1080 ? 30 : 22
-        let titleFontSize: CGFloat = canvasWidth >= 1080 ? 56 : 42
-
-        let body = makeAttributedBody(
+        let image = try makeRenderedMarkdownImage(
             title: title,
             text: text,
             theme: theme,
-            bodySize: bodyFontSize,
-            titleSize: titleFontSize
+            canvasWidth: canvasWidth,
+            sourceURL: sourceURL,
+            watermark: watermark
         )
-        let measured = body.boundingRect(
-            with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            context: nil
-        )
-        let canvasHeight = max(canvasWidth * 1.0, measured.height + 220)
-        let canvasSize = CGSize(width: canvasWidth, height: canvasHeight)
-
-        // Render through NSImage with a flipped lock focus. lockFocusFlipped
-        // installs a graphics context whose origin sits at the top-left, so
-        // both NSAttributedString.draw and NSColor fills cooperate without
-        // any manual coordinate gymnastics.
-        let image = NSImage(size: canvasSize)
-        image.lockFocusFlipped(true)
-
-        // The current graphics context is the one lockFocus just installed.
-        guard let graphicsContext = NSGraphicsContext.current else {
-            image.unlockFocus()
-            throw ExportError.contextCreation
-        }
-        let flippedCG = graphicsContext.cgContext
-
-        flippedCG.setFillColor(theme.backgroundColor.cgColor)
-        flippedCG.fill(CGRect(origin: .zero, size: canvasSize))
-
-        flippedCG.setFillColor(theme.accentColor.withAlphaComponent(0.20).cgColor)
-        flippedCG.fill(CGRect(x: horizontalPadding, y: 64, width: 160, height: 12))
-
-        let drawRect = CGRect(
-            x: horizontalPadding,
-            y: 100,
-            width: contentWidth,
-            height: measured.height + 40
-        )
-        body.draw(in: drawRect)
-
-        if watermark {
-            let watermarkAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
-                .foregroundColor: theme.inkColor.withAlphaComponent(0.45)
-            ]
-            let watermarkText = NSAttributedString(
-                string: "Made with MarkLens",
-                attributes: watermarkAttributes
-            )
-            let watermarkSize = watermarkText.size()
-            watermarkText.draw(at: CGPoint(
-                x: canvasWidth - watermarkSize.width - horizontalPadding,
-                y: canvasHeight - watermarkSize.height - 32
-            ))
-        }
-
-        image.unlockFocus()
 
         guard let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData),
@@ -204,6 +158,44 @@ enum ExportRunner {
         flashStatus("已复制纯文本")
     }
 
+    private static func makeRenderedMarkdownImage(
+        title: String,
+        text: String,
+        theme: ExportTheme,
+        canvasWidth: CGFloat,
+        sourceURL: URL?,
+        watermark: Bool
+    ) throws -> NSImage {
+        let content = ExportMarkdownDocumentView(
+            title: title,
+            text: MarkdownSection.normalize(text),
+            theme: theme,
+            canvasWidth: canvasWidth,
+            sourceURL: sourceURL,
+            watermark: watermark
+        )
+        .frame(width: canvasWidth)
+
+        let hostingView = NSHostingView(rootView: content)
+        hostingView.frame = CGRect(x: 0, y: 0, width: canvasWidth, height: 10)
+        hostingView.layoutSubtreeIfNeeded()
+
+        let fittingSize = hostingView.fittingSize
+        let canvasHeight = max(canvasWidth * 1.0, ceil(fittingSize.height))
+        hostingView.frame = CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight)
+        hostingView.layoutSubtreeIfNeeded()
+
+        guard let bitmap = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
+            throw ExportError.contextCreation
+        }
+        bitmap.size = hostingView.bounds.size
+        hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+
+        let image = NSImage(size: hostingView.bounds.size)
+        image.addRepresentation(bitmap)
+        return image
+    }
+
     private static func askSaveURL(
         title: String,
         extension ext: String,
@@ -239,8 +231,20 @@ enum ExportRunner {
         titleSize: CGFloat
     ) -> NSMutableAttributedString {
         let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = bodySize * 0.34
-        paragraph.paragraphSpacing = bodySize * 0.55
+        switch theme {
+        case .report:
+            paragraph.lineSpacing = bodySize * 0.50
+            paragraph.paragraphSpacing = bodySize * 0.88
+        case .lesson:
+            paragraph.lineSpacing = bodySize * 0.44
+            paragraph.paragraphSpacing = bodySize * 0.72
+        case .card:
+            paragraph.lineSpacing = bodySize * 0.40
+            paragraph.paragraphSpacing = bodySize * 0.78
+        default:
+            paragraph.lineSpacing = bodySize * 0.34
+            paragraph.paragraphSpacing = bodySize * 0.55
+        }
 
         let attributed = NSMutableAttributedString(
             string: "\(title)\n\n\(text)",
@@ -266,7 +270,7 @@ enum ExportRunner {
         // origin and no NSGraphicsContext).
         let attributed = CFAttributedStringCreate(
             nil,
-            "Made with MarkLens" as CFString,
+            "Made with MarkGo" as CFString,
             [
                 kCTFontAttributeName: CTFontCreateWithName("HelveticaNeue" as CFString, 9, nil),
                 kCTForegroundColorAttributeName: theme.inkColor.withAlphaComponent(0.45).cgColor
@@ -305,7 +309,7 @@ enum ExportRunner {
         <main class="page">
         <h1 class="brand">\(escapedTitle)</h1>
         \(renderedBody)
-        <footer>Made with MarkLens · Markdown Reader & Presenter</footer>
+        <footer>Made with MarkGo · Markdown Reader & Presenter</footer>
         </main>
         </body>
         </html>
@@ -367,6 +371,7 @@ enum ExportRunner {
         var paragraphBuffer: [String] = []
         var listBuffer: [String] = []
         var listType: String? = nil
+        var tableBuffer: [String] = []
 
         func flushParagraph() {
             guard !paragraphBuffer.isEmpty else { return }
@@ -387,6 +392,48 @@ enum ExportRunner {
             listType = nil
         }
 
+        func tableCells(in row: String) -> [String] {
+            var body = row.trimmingCharacters(in: .whitespaces)
+            if body.first == "|" { body.removeFirst() }
+            if body.last == "|" { body.removeLast() }
+            return body
+                .split(separator: "|", omittingEmptySubsequences: false)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+
+        func isTableSeparator(_ row: String) -> Bool {
+            let cells = tableCells(in: row)
+            guard !cells.isEmpty else { return false }
+            return cells.allSatisfy { cell in
+                cell.range(of: #"^:?-{3,}:?$"#, options: .regularExpression) != nil
+            }
+        }
+
+        func flushTable() {
+            guard !tableBuffer.isEmpty else { return }
+            defer { tableBuffer.removeAll() }
+            guard tableBuffer.count >= 2, isTableSeparator(tableBuffer[1]) else {
+                paragraphBuffer.append(contentsOf: tableBuffer)
+                return
+            }
+
+            let header = tableCells(in: tableBuffer[0])
+            let rows = tableBuffer.dropFirst(2).map(tableCells)
+            html += "<table>\n<thead><tr>"
+            for cell in header {
+                html += "<th>\(applyInlineFormatting(cell))</th>"
+            }
+            html += "</tr></thead>\n<tbody>\n"
+            for row in rows {
+                html += "<tr>"
+                for cell in row {
+                    html += "<td>\(applyInlineFormatting(cell))</td>"
+                }
+                html += "</tr>\n"
+            }
+            html += "</tbody>\n</table>\n"
+        }
+
         for rawLine in source.split(separator: "\n", omittingEmptySubsequences: false) {
             let line = String(rawLine)
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -401,6 +448,7 @@ enum ExportRunner {
                     fenceLanguage = ""
                     inFence = false
                 } else {
+                    flushTable()
                     flushParagraph()
                     flushList()
                     fenceLanguage = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
@@ -415,9 +463,19 @@ enum ExportRunner {
             }
 
             if trimmed.isEmpty {
+                flushTable()
                 flushParagraph()
                 flushList()
                 continue
+            }
+
+            if trimmed.hasPrefix("|"), trimmed.hasSuffix("|") {
+                flushParagraph()
+                flushList()
+                tableBuffer.append(trimmed)
+                continue
+            } else {
+                flushTable()
             }
 
             let hashes = trimmed.prefix(while: { $0 == "#" }).count
@@ -470,6 +528,7 @@ enum ExportRunner {
             paragraphBuffer.append(line.trimmingCharacters(in: .whitespaces))
         }
 
+        flushTable()
         flushParagraph()
         flushList()
         if inFence {
@@ -503,28 +562,110 @@ enum ExportRunner {
     }
 }
 
+private struct ExportMarkdownDocumentView: View {
+    let title: String
+    let text: String
+    let theme: ExportTheme
+    let canvasWidth: CGFloat
+    let sourceURL: URL?
+    let watermark: Bool
+
+    private var horizontalPadding: CGFloat {
+        canvasWidth * 0.066
+    }
+
+    private var scale: CGFloat {
+        canvasWidth >= 1080 ? 1.78 : 1.32
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            Capsule()
+                .fill(Color(theme.accentColor).opacity(0.20))
+                .frame(width: min(180, canvasWidth * 0.16), height: 12)
+
+            Text(title)
+                .font(.system(size: canvasWidth >= 1080 ? 56 : 42, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color(theme.accentColor))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Markdown(text, baseURL: baseURL, imageBaseURL: baseURL)
+                .markdownTheme(.reader(mode: theme.readingMode, scale: scale, includeCodeCopy: false))
+                .markdownImageProvider(ExportMarkdownImageProvider())
+                .markdownInlineImageProvider(ExportMarkdownInlineImageProvider())
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if watermark {
+                HStack {
+                    Spacer()
+                    Text("Made with MarkGo")
+                        .font(.system(size: canvasWidth >= 1080 ? 18 : 14, weight: .semibold))
+                        .foregroundStyle(Color(theme.inkColor).opacity(0.45))
+                }
+                .padding(.top, 18)
+            }
+        }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.top, canvasWidth >= 1080 ? 72 : 56)
+        .padding(.bottom, canvasWidth >= 1080 ? 84 : 64)
+        .frame(width: canvasWidth, alignment: .topLeading)
+        .background(Color(theme.backgroundColor))
+    }
+
+    private var baseURL: URL? {
+        sourceURL?.deletingLastPathComponent()
+    }
+}
+
+private struct ExportMarkdownImageProvider: ImageProvider {
+    @ViewBuilder
+    func makeImage(url: URL?) -> some View {
+        if let url, url.isFileURL, let image = NSImage(contentsOf: url) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            DefaultImageProvider().makeImage(url: url)
+        }
+    }
+}
+
+private struct ExportMarkdownInlineImageProvider: InlineImageProvider {
+    func image(with url: URL, label: String) async throws -> Image {
+        if url.isFileURL, let image = NSImage(contentsOf: url) {
+            return Image(nsImage: image)
+        }
+        return try await DefaultInlineImageProvider().image(with: url, label: label)
+    }
+}
+
 enum ExportTheme: String, CaseIterable, Identifiable {
+    case clear
     case paper
     case report
-    case note
+    case lesson
     case card
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .clear: "清读"
         case .paper: "纸张"
         case .report: "报告"
-        case .note: "手记"
+        case .lesson: "讲义"
         case .card: "卡片"
         }
     }
 
     var backgroundColor: NSColor {
         switch self {
+        case .clear: NSColor(red: 0.965, green: 0.948, blue: 0.910, alpha: 1)
         case .paper: NSColor(red: 0.985, green: 0.970, blue: 0.925, alpha: 1)
         case .report: NSColor(red: 0.950, green: 0.955, blue: 0.985, alpha: 1)
-        case .note: NSColor(red: 0.930, green: 0.965, blue: 0.955, alpha: 1)
+        case .lesson: NSColor(red: 0.965, green: 0.945, blue: 0.885, alpha: 1)
         case .card: NSColor(red: 0.980, green: 0.940, blue: 0.900, alpha: 1)
         }
     }
@@ -535,10 +676,21 @@ enum ExportTheme: String, CaseIterable, Identifiable {
 
     var accentColor: NSColor {
         switch self {
+        case .clear: NSColor(red: 0.22, green: 0.42, blue: 0.455, alpha: 1)
         case .paper: NSColor(red: 0.20, green: 0.31, blue: 0.62, alpha: 1)
         case .report: NSColor(red: 0.42, green: 0.30, blue: 0.56, alpha: 1)
-        case .note: NSColor(red: 0.22, green: 0.42, blue: 0.455, alpha: 1)
+        case .lesson: NSColor(red: 0.815, green: 0.610, blue: 0.235, alpha: 1)
         case .card: NSColor(red: 0.58, green: 0.31, blue: 0.18, alpha: 1)
+        }
+    }
+
+    var readingMode: ReadingMode {
+        switch self {
+        case .clear: .clear
+        case .paper: .paper
+        case .report: .report
+        case .lesson: .lesson
+        case .card: .cards
         }
     }
 }

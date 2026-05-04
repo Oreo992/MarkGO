@@ -1,117 +1,72 @@
 import SwiftUI
 
-/// Sidebar that exposes the document outline plus quick mode and workspace
-/// switching. On larger Mac windows the sidebar is permanent; users can
-/// collapse it from the standard NavigationSplitView affordance.
+/// Sidebar focused on reading navigation. Mode switching lives in the window
+/// chrome, so this column stays quiet: outline and stats.
 struct OutlineSidebar: View {
     let analysis: MarkdownAnalysis
-    @Binding var workspaceMode: WorkspaceMode
+    let selectedMode: ReadingMode
+    @ObservedObject var navigationState: ReaderNavigationState
     let onSelectHeading: (String) -> Void
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                WorkspaceSwitcher(workspaceMode: $workspaceMode)
-
-                Divider().background(AppPalette.line.opacity(0.6))
-
+            LazyVStack(alignment: .leading, spacing: 22) {
                 OutlineList(
                     headings: analysis.headings,
+                    selectedMode: selectedMode,
+                    currentSectionID: navigationState.currentSectionID,
                     onSelect: onSelectHeading
                 )
 
                 Divider().background(AppPalette.line.opacity(0.6))
 
-                StatsPanel(analysis: analysis)
+                StatsPanel(analysis: analysis, selectedMode: selectedMode)
             }
             .padding(18)
         }
-        .background(AppPalette.sidebar.opacity(0.7))
-    }
-}
-
-private struct WorkspaceSwitcher: View {
-    @Binding var workspaceMode: WorkspaceMode
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SidebarLabel(title: "工作模式")
-
-            HStack(spacing: 6) {
-                workspaceTile(.read, title: "阅读", symbol: "book.pages")
-                workspaceTile(.edit, title: "编辑", symbol: "square.and.pencil")
+        .background(
+            ZStack {
+                selectedMode.sidebarBackground
+                LinearGradient(
+                    colors: [
+                        selectedMode.accent.opacity(0.10),
+                        selectedMode.sidebarBackground.opacity(0.25),
+                        selectedMode.sidebarPanel.opacity(0.38)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             }
-        }
-    }
-
-    private func workspaceTile(_ mode: WorkspaceMode, title: String, symbol: String) -> some View {
-        Button {
-            workspaceMode = mode
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: symbol)
-                    .font(.title3.weight(.bold))
-                Text(title)
-                    .font(.caption.weight(.bold))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .foregroundStyle(workspaceMode == mode ? .white : AppPalette.ink)
-            .background(
-                workspaceMode == mode ? AppPalette.cobalt : AppPalette.paper.opacity(0.85),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(AppPalette.highlight, lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
+            .ignoresSafeArea(edges: .top)
+        )
+        .scrollContentBackground(.hidden)
     }
 }
 
 private struct OutlineList: View {
     let headings: [MarkdownHeading]
+    let selectedMode: ReadingMode
+    let currentSectionID: String?
     let onSelect: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                SidebarLabel(title: "目录")
-                Spacer()
-                Text(headings.isEmpty ? "无" : "\(headings.count)")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AppPalette.mutedInk)
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            SidebarLabel(title: "目录")
 
             if headings.isEmpty {
                 Text("这是一篇连续内容，没有标题层级。")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(AppPalette.mutedInk)
                     .padding(.vertical, 4)
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(headings) { heading in
-                        Button {
-                            onSelect(heading.sectionID)
-                        } label: {
-                            HStack(alignment: .top, spacing: 6) {
-                                Text(String(repeating: "·", count: max(0, heading.level - 1)))
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(AppPalette.line)
-                                    .frame(width: 18, alignment: .leading)
-                                Text(heading.title)
-                                    .font(.caption.weight(heading.level <= 2 ? .bold : .semibold))
-                                    .foregroundStyle(heading.level <= 2 ? AppPalette.ink : AppPalette.mutedInk)
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
+                        OutlineRow(
+                            heading: heading,
+                            selectedMode: selectedMode,
+                            isCurrent: currentSectionID == heading.sectionID,
+                            onSelect: onSelect
+                        )
                     }
                 }
             }
@@ -119,8 +74,48 @@ private struct OutlineList: View {
     }
 }
 
+private struct OutlineRow: View {
+    let heading: MarkdownHeading
+    let selectedMode: ReadingMode
+    let isCurrent: Bool
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        Button {
+            withAnimation(.smooth(duration: 0.22)) {
+                onSelect(heading.sectionID)
+            }
+        } label: {
+            HStack(alignment: .top, spacing: 9) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(isCurrent ? selectedMode.accent : AppPalette.line)
+                    .frame(width: isCurrent ? 7 : 4, height: 18)
+                    .padding(.top, 2)
+                    .padding(.leading, CGFloat(max(0, heading.level - 1)) * 12)
+
+                Text(heading.title)
+                    .font(.system(size: heading.level <= 2 ? 14 : 13, weight: heading.level <= 2 ? .bold : .semibold))
+                    .foregroundStyle(heading.level <= 2 ? AppPalette.ink : AppPalette.mutedInk)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 7)
+            .background(
+                isCurrent ? selectedMode.sidebarSelection : Color.clear,
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct StatsPanel: View {
     let analysis: MarkdownAnalysis
+    let selectedMode: ReadingMode
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -135,8 +130,8 @@ private struct StatsPanel: View {
             .font(.caption.weight(.medium))
             .foregroundStyle(AppPalette.ink)
             .padding(10)
-            .background(AppPalette.paper.opacity(0.8), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(AppPalette.line, lineWidth: 1))
+            .background(selectedMode.sidebarPanel.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(selectedMode.accent.opacity(0.16), lineWidth: 1))
         }
     }
 }
@@ -160,9 +155,8 @@ private struct StatRow: View {
 private struct SidebarLabel: View {
     let title: String
     var body: some View {
-        Text(title.uppercased())
-            .font(.caption2.weight(.black))
-            .tracking(1.2)
+        Text(title)
+            .font(.headline.weight(.black))
             .foregroundStyle(AppPalette.mutedInk)
     }
 }

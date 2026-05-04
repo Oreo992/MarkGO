@@ -9,7 +9,7 @@ import CoreText
 import Foundation
 import UniformTypeIdentifiers
 
-let title = "MarkLens 导出验证"
+let title = "MarkGo 导出验证"
 let body = """
 这是一段用于验证 PDF 导出修复的文字。
 - 背景应为暖纸色，而不是黑色
@@ -49,7 +49,7 @@ attributed.addAttributes(
     range: NSRange(location: 0, length: (title as NSString).length)
 )
 
-let outputURL = URL(fileURLWithPath: "/tmp/marklens-export-check.pdf")
+let outputURL = URL(fileURLWithPath: "/tmp/markgo-export-check.pdf")
 try? FileManager.default.removeItem(at: outputURL)
 
 var pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)

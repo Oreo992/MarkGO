@@ -704,7 +704,7 @@ Pro 能力
 * MarkView
 * MarkReady
 * MD Reader
-* MarkLens
+* MarkGo
 * Markly
 
 偏中文

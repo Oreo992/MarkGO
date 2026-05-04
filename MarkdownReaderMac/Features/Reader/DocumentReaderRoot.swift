@@ -9,18 +9,28 @@ struct DocumentReaderRoot: View {
     @Binding var document: MarkdownDocument
     let fileURL: URL?
 
-    @State private var selectedMode: ReadingMode = .article
+    @State private var selectedMode: ReadingMode = .clear
     @State private var workspaceMode: WorkspaceMode = .read
     @State private var editorLayout: EditorLayout = .split
     @State private var showOutline: Bool = true
     @State private var showInspector: Bool = false
     @State private var exportPresentation: ExportPresentation?
     @State private var fontScale: CGFloat = 1.0
+    @State private var showFontScalePopover = false
     @State private var pendingScrollID: String?
+    @State private var restoredInitialPosition = false
+    @State private var readingPositionCoordinator = ReadingPositionCoordinator()
+    @StateObject private var readerNavigation = ReaderNavigationState()
     /// Cached parse output. We refresh it from `.task(id:)` so we never re-run
     /// the analyzer in the middle of SwiftUI's render pass and the body itself
     /// stays a pure read against the cache.
     @State private var analysis: MarkdownAnalysis = MarkdownAnalysis(text: "")
+
+    private static var expandedDocumentWindows = Set<ObjectIdentifier>()
+
+    private static let minimumFontScale: CGFloat = 0.75
+    private static let defaultFontScale: CGFloat = 1.0
+    private static let maximumFontScale: CGFloat = 1.6
 
     private var resolvedTitle: String {
         if let url = fileURL { return url.deletingPathExtension().lastPathComponent }
@@ -31,12 +41,13 @@ struct DocumentReaderRoot: View {
         NavigationSplitView {
             OutlineSidebar(
                 analysis: analysis,
-                workspaceMode: $workspaceMode,
+                selectedMode: selectedMode,
+                navigationState: readerNavigation,
                 onSelectHeading: { id in
                     pendingScrollID = id
                 }
             )
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 360)
+            .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 390)
         } detail: {
             ZStack {
                 selectedMode.background.ignoresSafeArea()
@@ -50,7 +61,8 @@ struct DocumentReaderRoot: View {
                     request: presentation.request,
                     title: resolvedTitle,
                     text: document.text,
-                    style: selectedMode
+                    style: selectedMode,
+                    sourceURL: fileURL
                 )
                 .frame(minWidth: 540, minHeight: 580)
             }
@@ -75,7 +87,9 @@ struct DocumentReaderRoot: View {
                 handleExportRequest(request)
             }
             .onAppear {
+                normalizeDocumentTextIfNeeded()
                 analysis = MarkdownAnalysis(text: document.text)
+                restoreReadingPositionIfNeeded()
                 trackRecent()
             }
             .task(id: document.text) {
@@ -83,11 +97,15 @@ struct DocumentReaderRoot: View {
                 // trigger an analyzer pass on every keystroke.
                 try? await Task.sleep(nanoseconds: 120_000_000)
                 if Task.isCancelled { return }
+                normalizeDocumentTextIfNeeded()
                 analysis = MarkdownAnalysis(text: document.text)
                 trackRecent()
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .background(WindowAccessor { window in
+            configureDocumentWindow(window)
+        })
     }
 
     @ViewBuilder
@@ -98,7 +116,10 @@ struct DocumentReaderRoot: View {
                 analysis: analysis,
                 selectedMode: selectedMode,
                 fontScale: fontScale,
-                pendingScrollID: $pendingScrollID
+                documentURL: fileURL,
+                pendingScrollID: $pendingScrollID,
+                navigationState: readerNavigation,
+                onReadingPositionChange: updateReadingPosition
             )
         case .edit:
             EditorWorkspace(
@@ -106,6 +127,7 @@ struct DocumentReaderRoot: View {
                 selectedMode: selectedMode,
                 editorLayout: $editorLayout,
                 fontScale: fontScale,
+                documentURL: fileURL,
                 pendingScrollID: $pendingScrollID
             )
         }
@@ -113,26 +135,8 @@ struct DocumentReaderRoot: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigation) {
-            Button {
-                workspaceMode = .read
-            } label: {
-                Label("阅读", systemImage: "book.pages")
-                    .labelStyle(.titleAndIcon)
-            }
-            .help("阅读模式 (⌘E 切换)")
-            .keyboardShortcut("1", modifiers: [.command, .control])
-            .disabled(workspaceMode == .read)
-
-            Button {
-                workspaceMode = .edit
-            } label: {
-                Label("编辑", systemImage: "square.and.pencil")
-                    .labelStyle(.titleAndIcon)
-            }
-            .help("编辑模式 (⌘E 切换)")
-            .keyboardShortcut("2", modifiers: [.command, .control])
-            .disabled(workspaceMode == .edit)
+        ToolbarItem(placement: .navigation) {
+            WorkspaceModeSwitch(workspaceMode: $workspaceMode)
         }
 
         ToolbarItem(placement: .principal) {
@@ -152,17 +156,22 @@ struct DocumentReaderRoot: View {
                 .help("源码 / 分屏 / 预览")
             }
 
-            Menu {
-                Button("缩小字号") { fontScale = max(0.75, fontScale - 0.05) }
-                    .keyboardShortcut("-", modifiers: .command)
-                Button("还原字号") { fontScale = 1.0 }
-                    .keyboardShortcut("0", modifiers: .command)
-                Button("放大字号") { fontScale = min(1.6, fontScale + 0.05) }
-                    .keyboardShortcut("=", modifiers: .command)
+            Button {
+                showFontScalePopover.toggle()
             } label: {
                 Label("字号 \(Int(fontScale * 100))%", systemImage: "textformat.size")
             }
             .help("阅读字号")
+            .popover(isPresented: $showFontScalePopover, arrowEdge: .bottom) {
+                FontScalePopover(
+                    fontScale: $fontScale,
+                    minimumScale: Self.minimumFontScale,
+                    defaultScale: Self.defaultFontScale,
+                    maximumScale: Self.maximumFontScale,
+                    accent: selectedMode.accent
+                )
+                .frame(width: 268)
+            }
 
             Menu {
                 Button("导出 PDF") { handleExportRequest(.pdf) }
@@ -191,6 +200,55 @@ struct DocumentReaderRoot: View {
         )
     }
 
+    private func restoreReadingPositionIfNeeded() {
+        guard !restoredInitialPosition else { return }
+        restoredInitialPosition = true
+        guard let recent = RecentDocumentStore.find(title: resolvedTitle, fileURL: fileURL),
+              let sectionID = recent.readingSectionID else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
+            pendingScrollID = sectionID
+        }
+    }
+
+    private func normalizeDocumentTextIfNeeded() {
+        let normalized = MarkdownSection.normalize(document.text)
+        guard normalized != document.text else { return }
+        document.text = normalized
+    }
+
+    private func updateReadingPosition(_ sectionID: String) {
+        guard sectionID != ReaderSurface.topID else { return }
+        guard readingPositionCoordinator.lastPersistedSectionID != sectionID else { return }
+        readingPositionCoordinator.lastPersistedSectionID = sectionID
+        readingPositionCoordinator.pendingTask?.cancel()
+        let title = resolvedTitle
+        let url = fileURL
+        readingPositionCoordinator.pendingTask = Task {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled else { return }
+            RecentDocumentStore.updateReadingPosition(
+                title: title,
+                fileURL: url,
+                sectionID: sectionID
+            )
+        }
+    }
+
+    private func configureDocumentWindow(_ window: NSWindow) {
+        window.appearance = NSAppearance(named: .aqua)
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(selectedMode.sidebarBackground)
+        window.collectionBehavior.insert(.fullScreenPrimary)
+
+        let windowID = ObjectIdentifier(window)
+        guard !Self.expandedDocumentWindows.contains(windowID) else { return }
+        Self.expandedDocumentWindows.insert(windowID)
+
+        if let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
+            window.setFrame(visibleFrame, display: true, animate: false)
+        }
+    }
+
     private func handleExportRequest(_ request: ExportRequest) {
         switch request {
         case .copyRichText:
@@ -201,6 +259,20 @@ struct DocumentReaderRoot: View {
             exportPresentation = ExportPresentation(request: request)
         }
     }
+}
+
+final class ReaderNavigationState: ObservableObject {
+    @Published var currentSectionID: String?
+
+    func updateCurrentSection(_ sectionID: String) {
+        guard currentSectionID != sectionID else { return }
+        currentSectionID = sectionID
+    }
+}
+
+final class ReadingPositionCoordinator {
+    var lastPersistedSectionID: String?
+    var pendingTask: Task<Void, Never>?
 }
 
 enum WorkspaceMode {
@@ -227,6 +299,47 @@ enum EditorLayout: String, CaseIterable, Identifiable {
         case .split: "rectangle.split.2x1"
         case .preview: "text.alignleft"
         }
+    }
+}
+
+private struct WorkspaceModeSwitch: View {
+    @Binding var workspaceMode: WorkspaceMode
+
+    var body: some View {
+        HStack(spacing: 3) {
+            modeButton(.read, title: "阅读", symbol: "book.pages")
+                .keyboardShortcut("1", modifiers: [.command, .control])
+            modeButton(.edit, title: "编辑", symbol: "square.and.pencil")
+                .keyboardShortcut("2", modifiers: [.command, .control])
+        }
+        .padding(4)
+        .background(AppPalette.paper.opacity(0.86), in: Capsule())
+        .overlay(Capsule().stroke(AppPalette.highlight, lineWidth: 1))
+        .fixedSize()
+    }
+
+    private func modeButton(_ mode: WorkspaceMode, title: String, symbol: String) -> some View {
+        let isSelected = workspaceMode == mode
+        return Button {
+            workspaceMode = mode
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 16, height: 16)
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .fixedSize()
+            }
+            .foregroundStyle(isSelected ? AppPalette.ink.opacity(0.76) : AppPalette.mutedInk.opacity(0.48))
+            .frame(height: 28)
+            .padding(.horizontal, 10)
+            .background(isSelected ? Color.white.opacity(0.54) : Color.clear, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(mode == .read ? "阅读模式 (⌘⌃1)" : "编辑模式 (⌘⌃2)")
+        .animation(.smooth(duration: 0.16), value: isSelected)
     }
 }
 
@@ -262,19 +375,92 @@ struct ModeStrip: View {
             }
         }
         .padding(4)
-        .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().stroke(AppPalette.line.opacity(0.4), lineWidth: 1))
+        .background(selectedMode.sidebarPanel.opacity(0.94), in: Capsule())
+        .overlay(Capsule().stroke(selectedMode.accent.opacity(0.18), lineWidth: 1))
         .fixedSize()
     }
 
     private func modeShortcut(for mode: ReadingMode) -> String {
         switch mode {
-        case .article: "1"
-        case .manual: "2"
-        case .book: "3"
+        case .clear: "1"
+        case .paper: "2"
+        case .lesson: "3"
         case .report: "4"
         case .cards: "5"
         }
+    }
+}
+
+private struct FontScalePopover: View {
+    @Binding var fontScale: CGFloat
+    let minimumScale: CGFloat
+    let defaultScale: CGFloat
+    let maximumScale: CGFloat
+    let accent: Color
+
+    private var percentage: Int {
+        Int((fontScale * 100).rounded())
+    }
+
+    private var isDefault: Bool {
+        abs(fontScale - defaultScale) < 0.001
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "textformat.size")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(accent)
+
+                Text("阅读字号")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(AppPalette.ink)
+
+                Spacer()
+
+                Text("\(percentage)%")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(accent)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(accent.opacity(0.12), in: Capsule())
+            }
+
+            Slider(
+                value: Binding(
+                    get: { Double(fontScale) },
+                    set: { fontScale = CGFloat($0) }
+                ),
+                in: Double(minimumScale)...Double(maximumScale),
+                step: 0.01
+            )
+            .tint(accent)
+
+            HStack {
+                Text("\(Int(minimumScale * 100))%")
+                Spacer()
+                Text("\(Int(maximumScale * 100))%")
+            }
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(AppPalette.mutedInk)
+
+            HStack {
+                Button {
+                    fontScale = defaultScale
+                } label: {
+                    Label("默认", systemImage: "arrow.counterclockwise")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.bordered)
+                .disabled(isDefault)
+
+                Spacer()
+            }
+        }
+        .padding(16)
+        .background(AppPalette.canvas)
     }
 }
 
