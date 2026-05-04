@@ -1,6 +1,7 @@
 import SwiftUI
 import MarkdownUI
 import AppKit
+import WebKit
 
 extension Theme {
     /// Reading theme aligned with the iOS app: editorial paper background,
@@ -14,7 +15,12 @@ extension Theme {
         .reader(mode: .clear, scale: factor)
     }
 
-    static func reader(mode: ReadingMode, scale factor: CGFloat, includeCodeCopy: Bool = true) -> Theme {
+    static func reader(
+        mode: ReadingMode,
+        scale factor: CGFloat,
+        includeCodeCopy: Bool = true,
+        renderMermaid: Bool = true
+    ) -> Theme {
         let accent = mode.accent
         let bodySize: CGFloat = {
             switch mode {
@@ -140,52 +146,57 @@ extension Theme {
             .markdownMargin(top: 4, bottom: mode == .report ? 24 : 18)
         }
         .codeBlock { configuration in
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Text(configuration.language?.uppercased() ?? "CODE")
-                        .font(.caption2.weight(.black))
-                        .foregroundStyle(accent)
-                    Spacer()
-                    if includeCodeCopy {
-                        Button {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(configuration.content, forType: .string)
-                        } label: {
-                            Label("复制", systemImage: "doc.on.doc")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(accent)
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 6)
-                                .background(accent.opacity(0.10), in: Capsule())
+            if renderMermaid && isMermaidLanguage(configuration.language) {
+                MermaidBlockView(source: configuration.content, accent: accent)
+                    .markdownMargin(top: 2, bottom: mode == .report ? 28 : 20)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text(configuration.language?.uppercased() ?? "CODE")
+                            .font(.caption2.weight(.black))
+                            .foregroundStyle(accent)
+                        Spacer()
+                        if includeCodeCopy {
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(configuration.content, forType: .string)
+                            } label: {
+                                Label("复制", systemImage: "doc.on.doc")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(accent)
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 6)
+                                    .background(accent.opacity(0.10), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 12)
+
+                    ScrollView(.horizontal) {
+                        configuration.label
+                            .fixedSize(horizontal: false, vertical: true)
+                            .relativeLineSpacing(.em(0.30))
+                            .markdownTextStyle {
+                                FontFamilyVariant(.monospaced)
+                                FontSize(.em(mode == .report ? 0.82 : 0.86))
+                                ForegroundColor(Color(red: 0.17, green: 0.19, blue: 0.19))
+                            }
+                            .padding(.vertical, 16)
+                            .padding(.horizontal, 16)
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 12)
-
-                ScrollView(.horizontal) {
-                    configuration.label
-                        .fixedSize(horizontal: false, vertical: true)
-                        .relativeLineSpacing(.em(0.30))
-                        .markdownTextStyle {
-                            FontFamilyVariant(.monospaced)
-                            FontSize(.em(mode == .report ? 0.82 : 0.86))
-                            ForegroundColor(Color(red: 0.17, green: 0.19, blue: 0.19))
-                        }
-                        .padding(.vertical, 16)
-                        .padding(.horizontal, 16)
-                }
+                .background(
+                    Color(red: 0.90, green: 0.88, blue: 0.82).opacity(mode == .report ? 0.72 : 1),
+                    in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(accent.opacity(0.20), lineWidth: 1)
+                )
+                .markdownMargin(top: 2, bottom: mode == .report ? 28 : 20)
             }
-            .background(
-                Color(red: 0.90, green: 0.88, blue: 0.82).opacity(mode == .report ? 0.72 : 1),
-                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(accent.opacity(0.20), lineWidth: 1)
-            )
-            .markdownMargin(top: 2, bottom: mode == .report ? 28 : 20)
         }
         .listItem { configuration in
             configuration.label
@@ -228,6 +239,195 @@ extension Theme {
                 .fill(accent.opacity(0.22))
                 .frame(height: 1)
                 .markdownMargin(top: 26, bottom: 26)
+        }
+    }
+}
+
+func isMermaidLanguage(_ language: String?) -> Bool {
+    guard let language else { return false }
+    let normalized = language.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    return normalized == "mermaid" || normalized == "mmd"
+}
+
+private struct MermaidBlockView: View {
+    let source: String
+    let accent: Color
+
+    @State private var height: CGFloat = 260
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("MERMAID")
+                    .font(.caption2.weight(.black))
+                    .foregroundStyle(accent)
+                Spacer()
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(source, forType: .string)
+                } label: {
+                    Label("复制", systemImage: "doc.on.doc")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                        .background(accent.opacity(0.10), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+
+            MermaidWebView(source: source, height: $height)
+                .frame(minHeight: 180, idealHeight: height, maxHeight: height)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+        }
+        .background(
+            Color(red: 0.96, green: 0.955, blue: 0.925),
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(accent.opacity(0.20), lineWidth: 1)
+        )
+    }
+}
+
+private struct MermaidWebView: NSViewRepresentable {
+    let source: String
+    @Binding var height: CGFloat
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(height: $height)
+    }
+
+    func makeNSView(context: Context) -> WKWebView {
+        let userContentController = WKUserContentController()
+        userContentController.add(context.coordinator, name: "markgo")
+
+        let configuration = WKWebViewConfiguration()
+        configuration.userContentController = userContentController
+
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.navigationDelegate = context.coordinator
+        webView.loadHTMLString(htmlDocument(for: source), baseURL: nil)
+        return webView
+    }
+
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        guard context.coordinator.source != source else { return }
+        context.coordinator.source = source
+        webView.loadHTMLString(htmlDocument(for: source), baseURL: nil)
+    }
+
+    private func htmlDocument(for source: String) -> String {
+        let encodedSource = jsonString(source)
+        return """
+        <!doctype html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+        :root { color-scheme: light; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: transparent;
+          font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+          color: #1d2324;
+          overflow: hidden;
+        }
+        body { padding: 12px; box-sizing: border-box; }
+        svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+        pre {
+          white-space: pre-wrap;
+          word-break: break-word;
+          margin: 0;
+          padding: 14px 16px;
+          border-radius: 12px;
+          background: rgba(180, 80, 50, 0.10);
+          color: #7a3526;
+          font: 13px ui-monospace, "SF Mono", Menlo, monospace;
+          line-height: 1.55;
+        }
+        </style>
+        </head>
+        <body>
+        <div id="diagram"></div>
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+        <script>
+        const source = \(encodedSource);
+
+        function postHeight() {
+          const height = Math.max(180, Math.ceil(document.documentElement.scrollHeight));
+          window.webkit.messageHandlers.markgo.postMessage({ type: "height", height });
+        }
+
+        async function renderDiagram() {
+          try {
+            mermaid.initialize({
+              startOnLoad: false,
+              securityLevel: "strict",
+              theme: "base",
+              themeVariables: {
+                fontFamily: "-apple-system, BlinkMacSystemFont, PingFang SC, sans-serif",
+                primaryColor: "#e7f7f4",
+                primaryTextColor: "#1d2324",
+                primaryBorderColor: "#18b7ad",
+                lineColor: "#18b7ad",
+                secondaryColor: "#fff7ea",
+                tertiaryColor: "#f6efe4"
+              }
+            });
+            const result = await mermaid.render("markgo-mermaid-" + crypto.randomUUID(), source);
+            document.getElementById("diagram").innerHTML = result.svg;
+            requestAnimationFrame(postHeight);
+            setTimeout(postHeight, 120);
+          } catch (error) {
+            document.body.innerHTML = "<pre>Mermaid parse error\\n\\n" + escapeText(String(error)) + "\\n\\n" + escapeText(source) + "</pre>";
+            requestAnimationFrame(postHeight);
+          }
+        }
+
+        function escapeText(value) {
+          return value
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        }
+
+        window.addEventListener("load", renderDiagram);
+        </script>
+        </body>
+        </html>
+        """
+    }
+
+    private func jsonString(_ value: String) -> String {
+        let data = (try? JSONEncoder().encode(value)) ?? Data(#""""#.utf8)
+        let encoded = String(data: data, encoding: .utf8) ?? #""""#
+        return encoded.replacingOccurrences(of: "</", with: "<\\/")
+    }
+
+    final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+        var source = ""
+        private var height: Binding<CGFloat>
+
+        init(height: Binding<CGFloat>) {
+            self.height = height
+        }
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard let payload = message.body as? [String: Any],
+                  payload["type"] as? String == "height",
+                  let rawHeight = payload["height"] as? Double else { return }
+
+            DispatchQueue.main.async {
+                self.height.wrappedValue = min(900, max(180, CGFloat(rawHeight)))
+            }
         }
     }
 }

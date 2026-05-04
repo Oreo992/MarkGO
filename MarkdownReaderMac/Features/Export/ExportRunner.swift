@@ -387,6 +387,7 @@ enum ExportRunner {
         let escapedTitle = htmlEscape(title)
         let renderedBody = renderMarkdownToHTML(text)
         let css = htmlStylesheet(for: theme)
+        let mermaidRuntime = containsMermaidFence(text) ? htmlMermaidRuntime() : ""
         return """
         <!doctype html>
         <html lang="zh-CN">
@@ -402,6 +403,7 @@ enum ExportRunner {
         \(renderedBody)
         <footer>Made with MarkGo · Markdown Reader & Presenter</footer>
         </main>
+        \(mermaidRuntime)
         </body>
         </html>
         """
@@ -423,6 +425,8 @@ enum ExportRunner {
         code { font-family: ui-monospace, "SF Mono", Menlo, monospace; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px; font-size: 0.92em; }
         pre { background: rgba(0,0,0,0.05); padding: 16px; border-radius: 12px; overflow-x: auto; }
         pre code { background: transparent; padding: 0; }
+        .mermaid { overflow-x: auto; padding: 18px; margin: 18px 0; background: rgba(255,255,255,0.55); border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; }
+        .mermaid svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
         table { border-collapse: collapse; width: 100%; margin: 16px 0; }
         th, td { border: 1px solid rgba(0,0,0,0.10); padding: 8px 12px; text-align: left; }
         th { background: rgba(0,0,0,0.04); }
@@ -430,6 +434,30 @@ enum ExportRunner {
         ul, ol { line-height: 1.78; padding-left: 1.4em; }
         hr { border: 0; border-top: 1px solid rgba(0,0,0,0.10); margin: 28px 0; }
         footer { text-align: center; font-size: 12px; color: rgba(0,0,0,0.45); margin-top: 32px; }
+        """
+    }
+
+    private static func containsMermaidFence(_ source: String) -> Bool {
+        source.range(of: #"(?m)^```\s*(mermaid|mmd)\s*$"#, options: .regularExpression) != nil
+    }
+
+    private static func htmlMermaidRuntime() -> String {
+        """
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+        <script>
+        mermaid.initialize({
+          startOnLoad: true,
+          securityLevel: "strict",
+          theme: "base",
+          themeVariables: {
+            fontFamily: "-apple-system, BlinkMacSystemFont, PingFang SC, sans-serif",
+            primaryColor: "#e7f7f4",
+            primaryTextColor: "#1d2324",
+            primaryBorderColor: "#18b7ad",
+            lineColor: "#18b7ad"
+          }
+        });
+        </script>
         """
     }
 
@@ -533,8 +561,12 @@ enum ExportRunner {
                 if inFence {
                     let code = fenceBuffer.joined(separator: "\n")
                     let escaped = htmlEscape(code)
-                    let lang = fenceLanguage.isEmpty ? "" : " class=\"language-\(htmlEscape(fenceLanguage))\""
-                    html += "<pre><code\(lang)>\(escaped)</code></pre>\n"
+                    if isMermaidLanguage(fenceLanguage) {
+                        html += "<div class=\"mermaid\">\(escaped)</div>\n"
+                    } else {
+                        let lang = fenceLanguage.isEmpty ? "" : " class=\"language-\(htmlEscape(fenceLanguage))\""
+                        html += "<pre><code\(lang)>\(escaped)</code></pre>\n"
+                    }
                     fenceBuffer.removeAll()
                     fenceLanguage = ""
                     inFence = false
@@ -624,7 +656,11 @@ enum ExportRunner {
         flushList()
         if inFence {
             let code = fenceBuffer.joined(separator: "\n")
-            html += "<pre><code>\(htmlEscape(code))</code></pre>\n"
+            if isMermaidLanguage(fenceLanguage) {
+                html += "<div class=\"mermaid\">\(htmlEscape(code))</div>\n"
+            } else {
+                html += "<pre><code>\(htmlEscape(code))</code></pre>\n"
+            }
         }
         return html
     }
@@ -681,7 +717,7 @@ private struct ExportMarkdownDocumentView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Markdown(text, baseURL: baseURL, imageBaseURL: baseURL)
-                .markdownTheme(.reader(mode: theme.readingMode, scale: scale, includeCodeCopy: false))
+                .markdownTheme(.reader(mode: theme.readingMode, scale: scale, includeCodeCopy: false, renderMermaid: false))
                 .markdownImageProvider(ExportMarkdownImageProvider())
                 .markdownInlineImageProvider(ExportMarkdownInlineImageProvider())
                 .frame(maxWidth: .infinity, alignment: .leading)
