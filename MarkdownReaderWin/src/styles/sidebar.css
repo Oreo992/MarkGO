@@ -1,26 +1,59 @@
 /* Outline sidebar. Ported from OutlineSidebar.swift (目录 + 统计). */
 
+/* Floating Liquid Glass slab: translucent frosted panel that refracts the
+ * mode-tinted backdrop, with a bright specular rim and an ambient shadow so
+ * it appears to hover over the document — matching macOS Tahoe sidebars. */
 .sidebar {
-  width: 290px;
+  position: relative;
+  width: 286px;
   flex-shrink: 0;
   overflow-y: auto;
-  padding: 18px;
-  border-right: 1px solid var(--line);
-  background:
-    linear-gradient(
-      to bottom right,
-      color-mix(in srgb, var(--accent) 10%, transparent),
-      color-mix(in srgb, var(--sidebar-bg) 25%, transparent),
-      color-mix(in srgb, var(--sidebar-panel) 38%, transparent)
-    ),
-    var(--sidebar-bg);
-  transition: width 0.2s ease, padding 0.2s ease, border 0.2s ease;
+  margin: 14px 0 14px 14px;
+  padding: 20px 18px;
+  border-radius: 24px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-stroke);
+  box-shadow: var(--glass-shadow), var(--glass-inner-light);
+  transition: width 0.24s ease, margin 0.24s ease, padding 0.24s ease,
+    opacity 0.24s ease;
+}
+
+/* Specular sheen sweeping the top-left corner. */
+.sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-sheen);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Custom thin scrollbar so it doesn't break the glass illusion. */
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .sidebar.collapsed {
   width: 0;
+  margin: 14px 0;
   padding: 0;
-  border-right: none;
+  border-width: 0;
+  opacity: 0;
   overflow: hidden;
 }
 
@@ -56,7 +89,9 @@
 }
 
 .outline-row.current {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 4px rgba(40, 34, 22, 0.06);
 }
 
 .outline-row__tick {
@@ -105,10 +140,11 @@
 }
 
 .stats-card {
-  padding: 10px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--sidebar-panel) 82%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .stat-row {

@@ -2,24 +2,62 @@
  * DocumentReaderRoot's toolbar layout (workspace switch · mode strip · actions). */
 
 #app {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--mode-bg);
-  transition: background 0.22s ease;
+  background: transparent;
+  isolation: isolate;
 }
 
-/* ---- Title bar ---- */
+/* Dedicated mode-tinted backdrop layer. Strong, slow-fading color blooms give
+ * the Liquid Glass surfaces something vivid to refract and blur. */
+#app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(
+      760px 680px at 2% 4%,
+      color-mix(in srgb, var(--accent) 62%, transparent),
+      transparent 64%
+    ),
+    radial-gradient(
+      1100px 820px at 104% -6%,
+      color-mix(in srgb, var(--accent) 40%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      820px 820px at 14% 118%,
+      color-mix(in srgb, var(--gold) 38%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      980px 760px at 92% 116%,
+      color-mix(in srgb, var(--plum) 24%, transparent),
+      transparent 60%
+    ),
+    var(--mode-bg);
+  transition: background 0.3s ease;
+}
+
+/* ---- Title bar (glass) ---- */
 .titlebar {
   display: flex;
   align-items: center;
   gap: 14px;
   height: 56px;
   padding: 0 16px;
-  background: color-mix(in srgb, var(--sidebar-bg) 90%, transparent);
-  border-bottom: 1px solid var(--line);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   -webkit-user-select: none;
   user-select: none;
+  position: relative;
+  z-index: 20;
 }
 
 .titlebar__leading,
@@ -52,8 +90,12 @@
   gap: 3px;
   padding: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--paper) 86%, transparent);
-  border: 1px solid var(--highlight);
+  background: rgba(255, 255, 255, 0.4);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 2px 8px rgba(40, 34, 22, 0.08);
 }
 
 .workspace-switch__btn {
@@ -82,8 +124,12 @@
   gap: 4px;
   padding: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--sidebar-panel) 94%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  background: rgba(255, 255, 255, 0.4);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 2px 8px rgba(40, 34, 22, 0.08);
 }
 
 .mode-chip {
@@ -183,7 +229,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: var(--mode-bg);
+  background: transparent;
 }
 
 /* ---- Dropdown menu (export) ---- */
@@ -195,12 +241,14 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  min-width: 180px;
+  min-width: 184px;
   padding: 6px;
-  border-radius: 12px;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
+  border-radius: 16px;
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-stroke);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   z-index: 50;
   display: none;
   flex-direction: column;
@@ -239,10 +287,12 @@
   right: 0;
   width: 268px;
   padding: 16px;
-  border-radius: 14px;
-  background: var(--canvas);
-  border: 1px solid var(--line);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
+  border-radius: 18px;
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-stroke);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   z-index: 50;
   display: none;
 }

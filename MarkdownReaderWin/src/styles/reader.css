@@ -25,10 +25,17 @@
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.06);
 }
 
+/* Clear mode: a light frosted-glass reading slab so text stays crisp on the
+ * tinted backdrop while preserving the airy, card-less macOS feel. */
 :root[data-mode="clear"] .reader-card {
-  background: transparent;
-  box-shadow: none;
-  padding: 8px 0 0;
+  background: rgba(255, 255, 255, 0.5);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 26px;
+  box-shadow: 0 22px 60px rgba(40, 34, 22, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  padding: clamp(28px, 4vw, 56px);
 }
 
 /* Document title (brand line) */

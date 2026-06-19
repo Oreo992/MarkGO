@@ -48,6 +48,28 @@
   --reader-radius: 0px;
   --body-family: var(--font-sans);
   --reader-font-scale: 1;
+
+  /*
+   * Liquid Glass material — frosted, refractive translucency with a bright
+   * specular rim and a floating ambient shadow, echoing macOS Tahoe glass.
+   * backdrop-filter is supported in WebView2 (Chromium) so the packaged
+   * Windows app matches.
+   */
+  --glass-blur: blur(36px) saturate(185%) brightness(1.04);
+  --glass-bg: rgba(255, 255, 255, 0.42);
+  --glass-bg-strong: rgba(255, 255, 255, 0.58);
+  --glass-stroke: rgba(255, 255, 255, 0.6);
+  --glass-sheen: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.12) 24%,
+    rgba(255, 255, 255, 0) 55%
+  );
+  --glass-shadow: 0 22px 60px rgba(40, 34, 22, 0.2),
+    0 4px 14px rgba(40, 34, 22, 0.1);
+  --glass-inner-light: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 1px 0 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(120, 110, 90, 0.12);
 }
 
 /* clear · 清读 */
