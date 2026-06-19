@@ -1,0 +1,128 @@
+/* Outline sidebar. Ported from OutlineSidebar.swift (目录 + 统计). */
+
+.sidebar {
+  width: 290px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 18px;
+  border-right: 1px solid var(--line);
+  background:
+    linear-gradient(
+      to bottom right,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      color-mix(in srgb, var(--sidebar-bg) 25%, transparent),
+      color-mix(in srgb, var(--sidebar-panel) 38%, transparent)
+    ),
+    var(--sidebar-bg);
+  transition: width 0.2s ease, padding 0.2s ease, border 0.2s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  padding: 0;
+  border-right: none;
+  overflow: hidden;
+}
+
+.sidebar__label {
+  font: 900 15px var(--font-sans);
+  color: var(--muted-ink);
+  margin: 0 0 12px;
+}
+
+.outline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 22px;
+}
+
+.outline-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 7px 9px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.outline-row:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.outline-row.current {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.outline-row__tick {
+  flex-shrink: 0;
+  width: 4px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 3px;
+  background: var(--line);
+  transition: background 0.18s ease, width 0.18s ease;
+}
+
+.outline-row.current .outline-row__tick {
+  width: 7px;
+  background: var(--accent);
+}
+
+.outline-row__text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted-ink);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.outline-row[data-level="1"] .outline-row__text,
+.outline-row[data-level="2"] .outline-row__text {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.outline-empty {
+  font-size: 14px;
+  color: var(--muted-ink);
+  padding: 4px 0;
+}
+
+.sidebar__divider {
+  height: 1px;
+  background: var(--line);
+  margin: 0 0 22px;
+}
+
+.stats-card {
+  padding: 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sidebar-panel) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  font: 500 12px var(--font-sans);
+  padding: 3px 0;
+}
+
+.stat-row span:first-child {
+  color: var(--muted-ink);
+}
+
+.stat-row span:last-child {
+  color: var(--ink);
+  font-weight: 700;
+}
