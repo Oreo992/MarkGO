@@ -60,16 +60,28 @@ MarkGo 做的事很简单：站在 Markdown 源码和人的阅读之间，把文
 
 ## 当前状态
 
-- macOS：已可用
+- macOS：已可用（SwiftUI 原生）
+- Windows：已可用（Tauri + WebView2，与 macOS 共享设计语言）
 - iOS：开发中
 
 ## 安装
+
+### macOS
 
 [下载 MarkGo for macOS](https://github.com/Oreo992/MarkGO/releases/latest/download/MarkGo-1.0.0-mac.dmg)
 
 打开 DMG 后，把左边的 `MarkGo.app` 拖到右边的 `Applications`。
 
 如果 macOS 拦截首次打开，右键 `MarkGo`，选择“打开”。
+
+### Windows
+
+在 [Releases](https://github.com/Oreo992/MarkGO/releases) 里找到 `win-v*` 版本，下载安装程序：
+
+- `MarkGo_*_x64-setup.exe` — NSIS 安装程序（推荐）
+- `MarkGo_*_x64_en-US.msi` — MSI 安装程序
+
+双击安装即可。首次运行若缺少 WebView2 运行时，安装程序会自动引导安装（Windows 10/11 通常已内置）。
 
 
 ## 开发
@@ -90,10 +102,29 @@ open MarkdownReaderMac.xcodeproj
 
 构建产物会生成到 `dist/`，该目录不进入源码仓库。
 
+### Windows（Tauri）
+
+```bash
+cd MarkdownReaderWin
+npm install
+
+# 仅 Web UI，可在任意浏览器中预览（追加 ?demo 加载示例文档）
+npm run dev            # http://localhost:5179
+
+# 完整 Tauri 应用（需要 Rust 工具链 + WebView2，在 Windows 上运行）
+npm run tauri:dev
+npm run tauri:build    # 生成 .msi / NSIS .exe 安装包
+```
+
+Windows 安装包也可由 CI 自动构建：推送 `win-v*` 标签会触发
+[`.github/workflows/windows-release.yml`](.github/workflows/windows-release.yml)，
+在 Windows runner 上打包并发布到 Releases。
+
 ## 项目结构
 
 ```text
-MarkdownReaderMac/          macOS 应用源码
+MarkdownReaderMac/          macOS 应用源码（SwiftUI）
+MarkdownReaderWin/          Windows 应用源码（Tauri + TypeScript）
 MarkdownReaderApp/          iOS 应用源码，开发中
 Brand/                      品牌图标源素材
 Docs/                       设计说明和英文 README
