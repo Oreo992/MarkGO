@@ -143,6 +143,7 @@ function titlebarHtml(): string {
         <button class="workspace-switch__btn" data-ws="edit" aria-pressed="${state.workspace === "edit"}">${icon(ICONS.pencil, 13)} 编辑</button>
       </div>
       <button class="tool-btn" id="toggle-outline" title="切换目录">${icon(ICONS.sidebar)}</button>
+      <span class="doc-title">${escapeText(documentTitle())}</span>
     </div>
     <div class="titlebar__center">
       <div class="mode-strip">
@@ -157,11 +158,11 @@ function titlebarHtml(): string {
     <div class="titlebar__trailing">
       ${state.workspace === "edit" ? layoutSegmentHtml() : ""}
       <div class="menu" id="font-menu">
-        <button class="tool-btn" id="font-btn">${icon(ICONS.type)} ${Math.round(state.fontScale * 100)}%</button>
+        <button class="tool-btn" id="font-btn" title="阅读字号">${icon(ICONS.type)}</button>
         ${fontPopoverHtml()}
       </div>
       <div class="menu" id="export-menu">
-        <button class="tool-btn tool-btn--prominent" id="export-btn">${icon(ICONS.upload)} 导出</button>
+        <button class="tool-btn" id="export-btn" title="导出与分享">${icon(ICONS.upload)} 导出</button>
         <div class="menu__panel" id="export-panel">
           <button class="menu__item" data-export="pdf">导出 PDF</button>
           <button class="menu__item" data-export="longImage">导出长图</button>
@@ -227,7 +228,6 @@ function wireTitlebar(): void {
     state.fontScale = Number(range.value);
     document.documentElement.style.setProperty("--reader-font-scale", String(state.fontScale));
     root.querySelector("#font-pct")!.textContent = `${Math.round(state.fontScale * 100)}%`;
-    root.querySelector("#font-btn")!.innerHTML = `${icon(ICONS.type)} ${Math.round(state.fontScale * 100)}%`;
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-export]").forEach((btn) =>
@@ -338,11 +338,16 @@ function readerShellHtml(): string {
   <div class="reader-scroll">
     <div class="reader-canvas">
       <div class="reader-card">
-        <h1 class="reader-title">${escapeText(documentTitle())}</h1>
+        <div class="reader-meta">${readerMetaText()}</div>
         <div class="markdown-body"></div>
       </div>
     </div>
   </div>`;
+}
+
+function readerMetaText(): string {
+  const a = state.analysis;
+  return `${a.readingTimeText} · ${a.sections.length} 节 · ${a.wordCountText}`;
 }
 
 async function mountReader(scroller: HTMLElement, body: HTMLElement): Promise<void> {
@@ -380,7 +385,7 @@ function editorShellHtml(): string {
         <div class="reader-scroll">
           <div class="reader-canvas">
             <div class="reader-card">
-              <h1 class="reader-title" id="preview-title"></h1>
+              <div class="reader-meta" id="preview-meta"></div>
               <div class="markdown-body" id="preview-body"></div>
             </div>
           </div>
@@ -449,10 +454,10 @@ function applyFormat(ta: HTMLTextAreaElement, btn: HTMLButtonElement): void {
 
 let previewTimer = 0;
 function refreshPreview(): void {
-  const titleEl = root.querySelector<HTMLElement>("#preview-title");
+  const metaEl = root.querySelector<HTMLElement>("#preview-meta");
   const bodyEl = root.querySelector<HTMLElement>("#preview-body");
-  if (!titleEl || !bodyEl) return;
-  titleEl.textContent = documentTitle();
+  if (!metaEl || !bodyEl) return;
+  metaEl.textContent = readerMetaText();
   renderReader(bodyEl, { title: documentTitle(), text: state.text, baseDir: state.baseDir });
 }
 

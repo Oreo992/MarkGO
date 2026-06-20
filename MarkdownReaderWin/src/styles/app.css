@@ -10,9 +10,8 @@
   isolation: isolate;
 }
 
-/* Mode-tinted backdrop. A single accent hue at low opacity keeps it clean
- * (no muddy multi-color mixing) while still giving the glass something to
- * refract. Two gentle blooms in opposite corners read as a smooth wash. */
+/* Clean, warm canvas matching the macOS app: the mode background with only a
+ * whisper of lighter paper at the top-left for depth. No strong color wash. */
 #app::before {
   content: "";
   position: fixed;
@@ -20,31 +19,26 @@
   z-index: -1;
   background:
     radial-gradient(
-      1500px 1100px at -8% -12%,
-      color-mix(in srgb, var(--accent) 20%, transparent),
-      transparent 52%
-    ),
-    radial-gradient(
-      1300px 1000px at 108% 112%,
-      color-mix(in srgb, var(--accent) 12%, transparent),
-      transparent 55%
+      1300px 900px at 0% 0%,
+      color-mix(in srgb, var(--paper) 72%, transparent),
+      transparent 48%
     ),
     var(--mode-bg);
   transition: background 0.3s ease;
 }
 
-/* ---- Title bar (glass) ---- */
+/* ---- Title bar: light, clean, warm (matches macOS toolbar) ---- */
 .titlebar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  height: 56px;
-  padding: 0 16px;
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  gap: 12px;
+  height: 52px;
+  padding: 0 14px;
+  background: color-mix(in srgb, var(--paper) 58%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  backdrop-filter: blur(30px) saturate(150%);
+  border-bottom: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
   -webkit-user-select: none;
   user-select: none;
   position: relative;
