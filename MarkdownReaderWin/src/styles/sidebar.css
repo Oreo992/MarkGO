@@ -1,32 +1,35 @@
 /* Outline sidebar. Ported from OutlineSidebar.swift (目录 + 统计). */
 
-/* Floating Liquid Glass slab: translucent frosted panel that refracts the
- * mode-tinted backdrop, with a bright specular rim and an ambient shadow so
- * it appears to hover over the document — matching macOS Tahoe sidebars. */
+/* Flush, full-height Liquid Glass sidebar: a frosted translucent column that
+ * refracts the mode-tinted backdrop, with a bright inner top edge and a crisp
+ * right seam. Flush (no floating margins) keeps the layout aligned and clean,
+ * matching the macOS sidebar. */
 .sidebar {
   position: relative;
-  width: 286px;
+  width: 284px;
   flex-shrink: 0;
   overflow-y: auto;
-  margin: 14px 0 14px 14px;
   padding: 20px 18px;
-  border-radius: 24px;
   background: var(--glass-bg);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-stroke);
-  box-shadow: var(--glass-shadow), var(--glass-inner-light);
-  transition: width 0.24s ease, margin 0.24s ease, padding 0.24s ease,
-    opacity 0.24s ease;
+  border-right: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset -1px 0 0 rgba(255, 255, 255, 0.4);
+  transition: width 0.24s ease, padding 0.24s ease;
 }
 
-/* Specular sheen sweeping the top-left corner. */
+/* Soft top-down sheen for the frosted look. */
 .sidebar::before {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  background: var(--glass-sheen);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.06) 18%,
+    rgba(255, 255, 255, 0) 40%
+  );
   pointer-events: none;
   z-index: 0;
 }
@@ -36,7 +39,7 @@
   z-index: 1;
 }
 
-/* Custom thin scrollbar so it doesn't break the glass illusion. */
+/* Thin scrollbar so it doesn't break the glass illusion. */
 .sidebar::-webkit-scrollbar {
   width: 8px;
 }
@@ -50,10 +53,8 @@
 
 .sidebar.collapsed {
   width: 0;
-  margin: 14px 0;
   padding: 0;
   border-width: 0;
-  opacity: 0;
   overflow: hidden;
 }
 

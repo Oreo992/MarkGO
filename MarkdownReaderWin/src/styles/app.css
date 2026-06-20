@@ -10,8 +10,9 @@
   isolation: isolate;
 }
 
-/* Dedicated mode-tinted backdrop layer. Strong, slow-fading color blooms give
- * the Liquid Glass surfaces something vivid to refract and blur. */
+/* Mode-tinted backdrop. A single accent hue at low opacity keeps it clean
+ * (no muddy multi-color mixing) while still giving the glass something to
+ * refract. Two gentle blooms in opposite corners read as a smooth wash. */
 #app::before {
   content: "";
   position: fixed;
@@ -19,24 +20,14 @@
   z-index: -1;
   background:
     radial-gradient(
-      760px 680px at 2% 4%,
-      color-mix(in srgb, var(--accent) 62%, transparent),
-      transparent 64%
+      1500px 1100px at -8% -12%,
+      color-mix(in srgb, var(--accent) 20%, transparent),
+      transparent 52%
     ),
     radial-gradient(
-      1100px 820px at 104% -6%,
-      color-mix(in srgb, var(--accent) 40%, transparent),
-      transparent 60%
-    ),
-    radial-gradient(
-      820px 820px at 14% 118%,
-      color-mix(in srgb, var(--gold) 38%, transparent),
-      transparent 62%
-    ),
-    radial-gradient(
-      980px 760px at 92% 116%,
-      color-mix(in srgb, var(--plum) 24%, transparent),
-      transparent 60%
+      1300px 1000px at 108% 112%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 55%
     ),
     var(--mode-bg);
   transition: background 0.3s ease;
