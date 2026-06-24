@@ -1,6 +1,6 @@
 [package]
 name = "markgo-win"
-version = "1.0.0"
+version = "1.0.1"
 description = "MarkGo for Windows — Markdown Reader & Presenter"
 authors = ["MarkGo"]
 edition = "2021"
