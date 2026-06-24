@@ -15,8 +15,8 @@ import { normalizeMarkdown } from "./normalize";
 import { openMarkdownFile, openMarkdownPath } from "./file-io";
 import {
   buildMenus,
-  menubarHtml,
-  wireMenubar,
+  menuButtonHtml,
+  wireMenuButton,
   type MenuContext,
 } from "./menus";
 import { pushRecent, clearRecent, type RecentItem } from "./recent";
@@ -169,14 +169,19 @@ function workspaceHtml(): string {
 
 function chromeHtml(menus: ReturnType<typeof buildMenus>): string {
   const doc = state.hasDocument;
-  const leadingTools = doc
+
+  const leftTools = doc
     ? `
       <div class="workspace-switch">
         <button class="workspace-switch__btn" data-ws="read" aria-pressed="${state.workspace === "read"}">${icon(ICONS.book, 13)} 阅读</button>
         <button class="workspace-switch__btn" data-ws="edit" aria-pressed="${state.workspace === "edit"}">${icon(ICONS.pencil, 13)} 编辑</button>
       </div>
       <button class="tool-btn" id="toggle-outline" title="显示 / 隐藏目录">${icon(ICONS.sidebar)}</button>
-      ${state.workspace === "edit" ? layoutSegmentHtml() : ""}
+      ${state.workspace === "edit" ? layoutSegmentHtml() : ""}`
+    : "";
+
+  const centerTools = doc
+    ? `
       <div class="mode-strip">
         ${READING_MODES.map(
           (m) => `
@@ -187,7 +192,7 @@ function chromeHtml(menus: ReturnType<typeof buildMenus>): string {
       </div>`
     : "";
 
-  const trailingTools = doc
+  const rightTools = doc
     ? `
       <div class="menu" id="font-menu">
         <button class="tool-btn" id="font-btn" title="阅读字号">${icon(ICONS.type)}</button>
@@ -207,18 +212,24 @@ function chromeHtml(menus: ReturnType<typeof buildMenus>): string {
       </div>`
     : "";
 
+  // Three flex:1 zones keep the mode strip geometrically centered; empty zone
+  // space is draggable. Window controls sit flush in the right zone.
   return `
   <div class="titlebar">
-    ${menubarHtml(menus)}
-    ${leadingTools}
-    <div class="titlebar__drag" data-tauri-drag-region>
-      <span class="doc-title">${escapeText(doc ? documentTitle() : "MarkGo")}</span>
+    <div class="titlebar__zone titlebar__zone--left" data-tauri-drag-region>
+      ${menuButtonHtml(menus)}
+      ${leftTools}
     </div>
-    ${trailingTools}
-    <div class="winctl">
-      <button class="winctl__btn" id="win-min" title="最小化">${WIN_ICON.min}</button>
-      <button class="winctl__btn" id="win-max" title="最大化">${WIN_ICON.max}</button>
-      <button class="winctl__btn winctl__btn--close" id="win-close" title="关闭">${WIN_ICON.close}</button>
+    <div class="titlebar__zone titlebar__zone--center" data-tauri-drag-region>
+      ${centerTools}
+    </div>
+    <div class="titlebar__zone titlebar__zone--right" data-tauri-drag-region>
+      ${rightTools}
+      <div class="winctl">
+        <button class="winctl__btn" id="win-min" title="最小化">${WIN_ICON.min}</button>
+        <button class="winctl__btn" id="win-max" title="最大化">${WIN_ICON.max}</button>
+        <button class="winctl__btn winctl__btn--close" id="win-close" title="关闭">${WIN_ICON.close}</button>
+      </div>
     </div>
   </div>`;
 }
@@ -297,7 +308,7 @@ function menuContext(): MenuContext {
 // Wires the always-present chrome: menu bar, window controls, about modal.
 function wireChrome(menus: ReturnType<typeof buildMenus>): void {
   const titlebar = root.querySelector<HTMLElement>(".titlebar")!;
-  wireMenubar(titlebar, menus, closeMenus);
+  wireMenuButton(titlebar, menus, closeMenus);
 
   root.querySelector("#win-min")!.addEventListener("click", () => void minimizeWindow());
   root.querySelector("#win-max")!.addEventListener("click", () => void toggleMaximizeWindow());
@@ -389,6 +400,10 @@ function sidebarHtml(): string {
 
   return `
   <aside class="sidebar">
+    <div class="sidebar__doc">
+      <span class="sidebar__doc-eyebrow">当前文档</span>
+      <h1 class="sidebar__doc-title">${escapeText(documentTitle())}</h1>
+    </div>
     <h2 class="sidebar__label">目录</h2>
     ${outline}
     <div class="sidebar__divider"></div>
@@ -628,8 +643,8 @@ function refreshMenubar(): void {
   const bar = root.querySelector(".menubar");
   if (!bar) return;
   const menus = buildMenus(menuContext());
-  bar.outerHTML = menubarHtml(menus);
-  wireMenubar(root.querySelector<HTMLElement>(".titlebar")!, menus, closeMenus);
+  bar.outerHTML = menuButtonHtml(menus);
+  wireMenuButton(root.querySelector<HTMLElement>(".titlebar")!, menus, closeMenus);
 }
 
 // ---- Font scale ----
@@ -664,12 +679,6 @@ function loadDocument(text: string, path: string | null, name: string | null): v
   state.hasDocument = true;
   if (path) pushRecent({ path, name: name || state.analysis.title });
   render();
-  updateWindowTitle();
-}
-
-function updateWindowTitle(): void {
-  const titleEl = root.querySelector(".doc-title");
-  if (titleEl) titleEl.textContent = documentTitle();
 }
 
 async function handleOpen(): Promise<void> {

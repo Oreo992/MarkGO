@@ -151,75 +151,74 @@ export function buildMenus(ctx: MenuContext): TopMenu[] {
 
 // ---- Rendering ----
 
-function nodeHtml(node: MenuNode, nodeIndex: number): string {
+// Hamburger glyph for the single condensed menu button.
+const MENU_GLYPH = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`;
+
+function nodeHtml(node: MenuNode, mi: number, ni: number): string {
   if (node.kind === "divider") return `<div class="menu__divider"></div>`;
   if (node.kind === "caption") return `<div class="menu__caption">${node.label}</div>`;
   const hint = node.hint ? `<span class="menu__hint">${node.hint}</span>` : "";
   return `
-    <button class="menu__item" data-node="${nodeIndex}" ${node.disabled ? "disabled" : ""}>
+    <button class="menu__item" data-mi="${mi}" data-ni="${ni}" ${node.disabled ? "disabled" : ""}>
       <span class="menu__check">${node.checked ? "✓" : ""}</span>
       <span class="menu__label">${escapeMenu(node.label)}</span>
       ${hint}
     </button>`;
 }
 
-export function menubarHtml(menus: TopMenu[]): string {
+// Single condensed menu: one ≡ button opening one dropdown, with the former
+// top-level menus (文件 / 编辑 / 视图 / 帮助) becoming labelled sections.
+export function menuButtonHtml(menus: TopMenu[]): string {
+  const sections = menus
+    .map(
+      (m, mi) =>
+        `<div class="menu__caption menu__caption--section">${m.label}</div>` +
+        m.nodes.map((n, ni) => nodeHtml(n, mi, ni)).join("")
+    )
+    .join(`<div class="menu__divider"></div>`);
+
   return `
   <div class="menubar">
-    ${menus
-      .map(
-        (m, mi) => `
-      <div class="menubar__group menu" data-menu="${mi}">
-        <button class="menubar__btn" type="button">${m.label}</button>
-        <div class="menu__panel menu__panel--bar">
-          ${m.nodes.map((n, ni) => nodeHtml(n, ni)).join("")}
-        </div>
-      </div>`
-      )
-      .join("")}
+    <div class="menubar__group menu">
+      <button class="menubar__btn menubar__btn--icon" type="button" title="菜单" aria-label="菜单">${MENU_GLYPH}</button>
+      <div class="menu__panel menu__panel--bar menu__panel--single">
+        ${sections}
+      </div>
+    </div>
   </div>`;
 }
 
 /**
- * Wires every action node's click to its handler, plus menu-bar behaviour:
- * click a top item to open it, then hovering siblings switches the open menu.
- * `closeAll` lets the host close popovers/menus before running an action.
+ * Wires the condensed menu button: toggle on click, and every action item runs
+ * its node handler (resolved via data-mi / data-ni). `closeAll` lets the host
+ * close any open menu/popover before running an action.
  */
-export function wireMenubar(
+export function wireMenuButton(
   scope: HTMLElement,
   menus: TopMenu[],
   closeAll: () => void
 ): void {
-  scope.querySelectorAll<HTMLElement>(".menubar__group").forEach((group) => {
-    const mi = Number(group.dataset.menu);
-    const btn = group.querySelector<HTMLButtonElement>(".menubar__btn")!;
-    const panel = group.querySelector<HTMLElement>(".menu__panel")!;
+  const group = scope.querySelector<HTMLElement>(".menubar__group");
+  if (!group) return;
+  const btn = group.querySelector<HTMLButtonElement>(".menubar__btn")!;
+  const panel = group.querySelector<HTMLElement>(".menu__panel")!;
 
-    btn.addEventListener("click", (e) => {
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !panel.classList.contains("open");
+    closeAll();
+    if (willOpen) panel.classList.add("open");
+  });
+
+  panel.querySelectorAll<HTMLButtonElement>(".menu__item").forEach((item) => {
+    const mi = Number(item.dataset.mi);
+    const ni = Number(item.dataset.ni);
+    const node = menus[mi]?.nodes[ni];
+    if (!node || node.kind !== "action" || node.disabled) return;
+    item.addEventListener("click", (e) => {
       e.stopPropagation();
-      const willOpen = !panel.classList.contains("open");
       closeAll();
-      if (willOpen) panel.classList.add("open");
-    });
-
-    // When any menu is already open, hovering a sibling switches to it.
-    btn.addEventListener("mouseenter", () => {
-      const anyOpen = scope.querySelector(".menu__panel.open");
-      if (anyOpen && !panel.classList.contains("open")) {
-        closeAll();
-        panel.classList.add("open");
-      }
-    });
-
-    panel.querySelectorAll<HTMLButtonElement>(".menu__item").forEach((item) => {
-      const ni = Number(item.dataset.node);
-      const node = menus[mi].nodes[ni];
-      if (!node || node.kind !== "action" || node.disabled) return;
-      item.addEventListener("click", (e) => {
-        e.stopPropagation();
-        closeAll();
-        node.run();
-      });
+      node.run();
     });
   });
 }

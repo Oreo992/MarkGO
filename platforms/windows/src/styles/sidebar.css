@@ -65,6 +65,31 @@
   margin: 0 0 12px;
 }
 
+/* Current document title — relocated here from the title bar so the top chrome
+ * stays clean and the mode strip can sit centered. */
+.sidebar__doc {
+  margin: 0 0 18px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sidebar__doc-eyebrow {
+  display: block;
+  font: 800 10.5px var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--muted-ink) 75%, transparent);
+  margin-bottom: 5px;
+}
+
+.sidebar__doc-title {
+  font: 800 18px var(--font-serif);
+  line-height: 1.34;
+  color: var(--ink);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .outline-list {
   display: flex;
   flex-direction: column;

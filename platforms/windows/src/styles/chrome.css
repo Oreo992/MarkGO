@@ -5,24 +5,38 @@
  * the native Windows title bar so the whole surface stays on-brand.
  */
 
-/* The bar itself reuses .titlebar base styles (app.css); these adjustments make
- * room for flush-to-corner window controls and a draggable spacer. */
+/* The bar reuses .titlebar base styles (app.css). Zero the padding so the close
+ * button reaches the top-right corner and the zones stay symmetric (the 14px
+ * inset is reapplied to the left zone only). */
 .titlebar {
-  padding-right: 0; /* close button must reach the top-right corner (Fitts) */
+  padding: 0;
+  gap: 0;
 }
 
-.titlebar__drag {
-  flex: 1;
-  align-self: stretch;
+/* Three zones: left + right are flex:1 (equal width) so the center zone — the
+ * mode strip — stays geometrically centered. Empty zone space is draggable. */
+.titlebar__zone {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  -webkit-app-region: drag; /* harmless in browser; Tauri uses the data attr */
+  gap: 10px;
+  min-width: 0;
+  align-self: stretch;
 }
 
-.titlebar__drag .doc-title {
-  pointer-events: none; /* let drags pass through the label */
+.titlebar__zone--left {
+  flex: 1;
+  justify-content: flex-start;
+  padding-left: 14px;
+}
+
+.titlebar__zone--center {
+  flex: 0 0 auto;
+  justify-content: center;
+}
+
+.titlebar__zone--right {
+  flex: 1;
+  justify-content: flex-end;
 }
 
 /* ---- Menu bar ---- */
@@ -55,9 +69,47 @@
   color: var(--ink);
 }
 
+/* Condensed single ≡ menu button */
+.menubar__btn--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 32px;
+  padding: 0;
+}
+
+.menu__panel--single {
+  min-width: 252px;
+}
+
+/* Section headers inside the condensed menu (former top-level menu names) */
+.menu__caption--section {
+  margin-top: 2px;
+  padding: 7px 12px 5px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.menu__panel--single > .menu__caption--section:first-child {
+  margin-top: 0;
+}
+
 .menubar__group:has(.menu__panel.open) .menubar__btn {
   background: rgba(255, 255, 255, 0.62);
   color: var(--ink);
+}
+
+/* Make every dropdown menu nearly opaque so labels stay legible over busy
+ * document backgrounds (the default glass material was too see-through). */
+.menu__panel {
+  background: color-mix(in srgb, var(--paper) 97%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  border-color: color-mix(in srgb, var(--line) 80%, var(--ink));
+  box-shadow: 0 16px 40px rgba(40, 34, 22, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 /* Menu-bar dropdowns open under the left edge (override the export panel's
