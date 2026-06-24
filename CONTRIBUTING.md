@@ -6,23 +6,25 @@ make collaboration easier.
 ## Quick Start
 
 ```bash
-git clone https://github.com/<your-fork>/MarkdownReaderApp.git
-cd MarkdownReaderApp
+git clone https://github.com/<your-fork>/MarkGO.git
+cd MarkGO
 
 # Build the macOS app
 ./scripts/build-mac.sh
 
 # Or open in Xcode
-open MarkdownReaderMac.xcodeproj
+open platforms/macos/MarkGo.xcodeproj
 ```
 
 ## Repository Layout
 
-- `MarkdownReaderApp/` — iOS app
-- `MarkdownReaderMac/` — macOS app
+- `platforms/macos/` — macOS app (SwiftUI): `MarkGo.xcodeproj` + `MarkGo/` source
+- `platforms/ios/` — iOS app (SwiftUI), in development
+- `platforms/windows/` — Windows app (Tauri + WebView2 + TypeScript)
 - `scripts/` — Build, sign, package
-- `test-fixtures/` — Smoke tests and Markdown samples
-- `Docs/` — Long-form product design notes
+- `tests/` — Smoke tests and Markdown samples
+- `docs/` — Long-form product design notes
+- `brand/` — Brand icon source assets
 
 ## Development
 
@@ -30,7 +32,7 @@ open MarkdownReaderMac.xcodeproj
 
 ```bash
 xcodebuild \
-  -project MarkdownReaderMac.xcodeproj \
+  -project platforms/macos/MarkGo.xcodeproj \
   -scheme MarkGo \
   -configuration Debug \
   -destination 'platform=macOS' \
@@ -41,7 +43,7 @@ xcodebuild \
 
 ```bash
 xcodebuild \
-  -workspace MarkdownReaderApp.xcworkspace \
+  -workspace platforms/ios/MarkGo.xcworkspace \
   -scheme MarkdownReaderApp \
   -configuration Debug \
   -sdk iphonesimulator \
@@ -53,10 +55,10 @@ xcodebuild \
 
 ```bash
 # Headless integration tests for the macOS bundle
-./test-fixtures/run-headless-tests.sh
+./tests/run-headless-tests.sh
 
 # Markdown analyzer unit tests
-swift test-fixtures/test-markdown-analysis.swift
+swift tests/test-markdown-analysis.swift
 ```
 
 A green run is required before opening a PR.

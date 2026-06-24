@@ -43,8 +43,8 @@ agent-output/
 marketing/
 
 # Windows build outputs and dependencies
-MarkdownReaderWin/node_modules/
-MarkdownReaderWin/dist/
-MarkdownReaderWin/src-tauri/target/
-MarkdownReaderWin/src-tauri/gen/
+platforms/windows/node_modules/
+platforms/windows/dist/
+platforms/windows/src-tauri/target/
+platforms/windows/src-tauri/gen/
 
