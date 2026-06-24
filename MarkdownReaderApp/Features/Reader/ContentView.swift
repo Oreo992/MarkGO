@@ -455,6 +455,7 @@ private struct DockButton: View {
 private struct ReaderContainer: View {
     @Environment(\.dismiss) private var dismiss
     @State private var document: MarkdownDocument
+    @State private var readingPositionCoordinator = ReadingPositionCoordinator()
     private let recentID: UUID?
     private let initialSectionID: String?
     private let title: String
@@ -471,14 +472,28 @@ private struct ReaderContainer: View {
             document: $document,
             titleOverride: title,
             initialSectionID: initialSectionID,
-            onReadingPositionChange: { sectionID in
-                guard let recentID else { return }
-                RecentDocumentStore.updateReadingPosition(recentID, sectionID: sectionID)
-            }
+            onReadingPositionChange: persistReadingPosition
         ) {
             dismiss()
         }
     }
+
+    private func persistReadingPosition(_ sectionID: String) {
+        guard let recentID else { return }
+        guard readingPositionCoordinator.lastPersistedSectionID != sectionID else { return }
+        readingPositionCoordinator.lastPersistedSectionID = sectionID
+        readingPositionCoordinator.pendingTask?.cancel()
+        readingPositionCoordinator.pendingTask = Task {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled else { return }
+            RecentDocumentStore.updateReadingPosition(recentID, sectionID: sectionID)
+        }
+    }
+}
+
+private final class ReadingPositionCoordinator {
+    var lastPersistedSectionID: String?
+    var pendingTask: Task<Void, Never>?
 }
 
 struct ReaderView: View {
@@ -492,10 +507,7 @@ struct ReaderView: View {
     @State private var showOutline = false
     @State private var showExport = false
     @State private var isEditing = false
-
-    private var analysis: MarkdownAnalysis {
-        MarkdownAnalysis(text: document.text)
-    }
+    @State private var analysis: MarkdownAnalysis = MarkdownAnalysis(text: "")
 
     var body: some View {
         NavigationStack {
@@ -564,6 +576,14 @@ struct ReaderView: View {
                 )
                 .presentationDetents([.medium, .large])
             }
+            .onAppear {
+                analysis = MarkdownAnalysis(text: document.text)
+            }
+            .task(id: document.text) {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                if Task.isCancelled { return }
+                analysis = MarkdownAnalysis(text: document.text)
+            }
             .preferredColorScheme(.light)
         }
     }
@@ -596,7 +616,7 @@ private struct ReaderSurface: View {
                         }
                         .frame(height: 0)
 
-                        VStack(alignment: .leading, spacing: selectedMode.sectionSpacing) {
+                        LazyVStack(alignment: .leading, spacing: selectedMode.sectionSpacing) {
                             ReaderHeader(analysis: analysis, selectedMode: selectedMode)
                                 .id("reader-top")
 
@@ -1102,15 +1122,17 @@ private struct ReaderBody: View {
     var body: some View {
         switch selectedMode {
         case .cards:
-            VStack(spacing: 18) {
+            LazyVStack(spacing: 18) {
                 ForEach(sections) { section in
                     MarkdownSectionCard(section: section, selectedMode: selectedMode)
+                        .equatable()
                 }
             }
         case .paper:
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(sections) { section in
                     MarkdownSectionView(section: section, selectedMode: selectedMode)
+                        .equatable()
                 }
             }
             .padding(.vertical, 28)
@@ -1128,9 +1150,10 @@ private struct ReaderBody: View {
                     .padding(.vertical, 18)
             }
         case .report:
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(sections) { section in
                     MarkdownSectionView(section: section, selectedMode: selectedMode)
+                        .equatable()
                         .padding(.bottom, section.heading?.level == 1 ? 18 : 8)
                 }
             }
@@ -1138,7 +1161,7 @@ private struct ReaderBody: View {
             .padding(.horizontal, 30)
             .tintedSurface(selectedMode.accent, radius: 22)
         case .book:
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(sections) { section in
                     HStack(alignment: .top, spacing: 14) {
                         if let heading = section.heading {
@@ -1151,6 +1174,7 @@ private struct ReaderBody: View {
                             Spacer().frame(width: 32)
                         }
                         MarkdownSectionView(section: section, selectedMode: selectedMode)
+                            .equatable()
                     }
                 }
             }
@@ -1158,18 +1182,24 @@ private struct ReaderBody: View {
             .padding(.horizontal, 22)
             .tintedSurface(selectedMode.accent, radius: 18)
         default:
-            VStack(alignment: .leading, spacing: selectedMode.sectionSpacing) {
+            LazyVStack(alignment: .leading, spacing: selectedMode.sectionSpacing) {
                 ForEach(sections) { section in
                     MarkdownSectionView(section: section, selectedMode: selectedMode)
+                        .equatable()
                 }
             }
         }
     }
 }
 
-private struct MarkdownSectionView: View {
+private struct MarkdownSectionView: View, Equatable {
     let section: MarkdownSection
     let selectedMode: ReadingMode
+
+    static func == (lhs: MarkdownSectionView, rhs: MarkdownSectionView) -> Bool {
+        lhs.section == rhs.section
+            && lhs.selectedMode == rhs.selectedMode
+    }
 
     var body: some View {
         Markdown(section.markdown)
@@ -1182,9 +1212,14 @@ private struct MarkdownSectionView: View {
     }
 }
 
-private struct MarkdownSectionCard: View {
+private struct MarkdownSectionCard: View, Equatable {
     let section: MarkdownSection
     let selectedMode: ReadingMode
+
+    static func == (lhs: MarkdownSectionCard, rhs: MarkdownSectionCard) -> Bool {
+        lhs.section == rhs.section
+            && lhs.selectedMode == rhs.selectedMode
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1438,7 +1473,7 @@ private struct MarkdownAnalysis {
     }
 }
 
-private struct MarkdownHeading: Identifiable {
+private struct MarkdownHeading: Identifiable, Equatable {
     let id: String
     let sectionID: String
     let level: Int
@@ -1446,7 +1481,7 @@ private struct MarkdownHeading: Identifiable {
     let displayNumber: Int
 }
 
-private struct MarkdownSection: Identifiable {
+private struct MarkdownSection: Identifiable, Equatable {
     let id: String
     let heading: MarkdownHeading?
     let markdown: String

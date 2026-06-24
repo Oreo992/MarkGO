@@ -1,0 +1,325 @@
+/* App shell: titlebar chrome, workspace switch, mode strip, toolbar. Mirrors
+ * DocumentReaderRoot's toolbar layout (workspace switch · mode strip · actions). */
+
+#app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: transparent;
+  isolation: isolate;
+}
+
+/* Clean, warm canvas matching the macOS app: the mode background with only a
+ * whisper of lighter paper at the top-left for depth. No strong color wash. */
+#app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(
+      1300px 900px at 0% 0%,
+      color-mix(in srgb, var(--paper) 72%, transparent),
+      transparent 48%
+    ),
+    var(--mode-bg);
+  transition: background 0.3s ease;
+}
+
+/* ---- Title bar: light, clean, warm (matches macOS toolbar) ---- */
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 14px;
+  background: color-mix(in srgb, var(--paper) 58%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  backdrop-filter: blur(30px) saturate(150%);
+  border-bottom: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  -webkit-user-select: none;
+  user-select: none;
+  position: relative;
+  z-index: 20;
+}
+
+.titlebar__leading,
+.titlebar__trailing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.titlebar__center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.doc-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--ink) 76%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+/* ---- Workspace switch (阅读 / 编辑) ---- */
+.workspace-switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.4);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 2px 8px rgba(40, 34, 22, 0.08);
+}
+
+.workspace-switch__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--muted-ink) 48%, transparent);
+  font: 600 13px var(--font-sans);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.workspace-switch__btn[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.54);
+  color: color-mix(in srgb, var(--ink) 76%, transparent);
+}
+
+/* ---- Mode strip (清读 / 纸页 / 报告 / 讲义 / 卡片) ---- */
+.mode-strip {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.4);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 2px 8px rgba(40, 34, 22, 0.08);
+}
+
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chip-accent) 10%, transparent);
+  color: var(--chip-accent);
+  font: 700 11px var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.mode-chip svg {
+  width: 12px;
+  height: 12px;
+}
+
+.mode-chip[aria-pressed="true"] {
+  background: var(--chip-accent);
+  color: #fff;
+}
+
+/* ---- Toolbar action buttons ---- */
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font: 600 12px var(--font-sans);
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.tool-btn:hover {
+  filter: brightness(0.98);
+}
+
+.tool-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tool-btn--prominent {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+
+.tool-btn--prominent:hover {
+  filter: brightness(1.05);
+}
+
+/* ---- Editor layout segmented control ---- */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sidebar-panel) 92%, transparent);
+  border: 1px solid var(--line);
+}
+
+.segmented button {
+  border: none;
+  background: transparent;
+  color: var(--muted-ink);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font: 600 12px var(--font-sans);
+  cursor: pointer;
+}
+
+.segmented button[aria-pressed="true"] {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* ---- Main body: sidebar + content ---- */
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.workspace__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+/* ---- Dropdown menu (export) ---- */
+.menu {
+  position: relative;
+}
+
+.menu__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 184px;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-stroke);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  z-index: 50;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu__panel.open {
+  display: flex;
+}
+
+.menu__item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font: 500 13px var(--font-sans);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.menu__item:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.menu__divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+
+/* ---- Font scale popover ---- */
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 268px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-stroke);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  z-index: 50;
+  display: none;
+}
+
+.popover.open {
+  display: block;
+}
+
+.popover__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.popover__title {
+  font: 700 14px var(--font-sans);
+  color: var(--ink);
+}
+
+.popover__pct {
+  margin-left: auto;
+  font: 700 13px var(--font-mono);
+  color: var(--accent);
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.popover input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.popover__scale-labels {
+  display: flex;
+  justify-content: space-between;
+  font: 600 11px var(--font-sans);
+  color: var(--muted-ink);
+  margin-top: 4px;
+}
+
+.hidden {
+  display: none !important;
+}

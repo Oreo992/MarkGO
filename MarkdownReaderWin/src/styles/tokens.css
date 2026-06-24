@@ -1,0 +1,174 @@
+/*
+ * Design tokens ported 1:1 from the macOS app (AppPalette.swift +
+ * ReadingMode.swift). Colors are converted from SwiftUI sRGB components to
+ * hex so the Windows WebView2 renderer matches the native reader closely.
+ *
+ * Mode theming is driven by `data-mode` on <html>; each mode overrides the
+ * accent / background / sidebar surfaces just like ReadingMode does on macOS.
+ */
+
+:root {
+  /* Editorial paper-and-ink palette (AppPalette) */
+  --canvas: #f6f2e8;
+  --paper: #fefbf2;
+  --book-paper: #fbf4e4;
+  --ink: #1b1d20;
+  --muted-ink: #6e6760;
+  --teal: #386b74;
+  --rust: #944f2e;
+  --cobalt: #334f9e;
+  --plum: #6b4d8f;
+  --gold: #d09c3c;
+  --line: rgba(194, 179, 151, 0.42);
+  --highlight: rgba(255, 255, 255, 0.74);
+
+  /* Body type tuned to MarkdownTheme+Custom */
+  --body-text: #1f2121;
+  --code-ink: #78381f;
+  --code-bg: #ebe3d1;
+
+  --font-sans: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC",
+    "Hiragino Sans GB", system-ui, sans-serif;
+  --font-serif: "Source Han Serif SC", "Songti SC", "Noto Serif SC", Georgia,
+    "Times New Roman", serif;
+  --font-mono: "Cascadia Code", "SF Mono", "JetBrains Mono", Consolas,
+    "Microsoft YaHei", ui-monospace, monospace;
+
+  /* Defaults; overridden per-mode below */
+  --accent: var(--teal);
+  --mode-bg: var(--canvas);
+  --sidebar-bg: #edece4;
+  --sidebar-panel: #fbf8ed;
+  --content-width: 980px;
+  --content-pad: 32px;
+  --section-spacing: 18px;
+  --body-size: 16.5px;
+  --body-line: 1.78;
+  --para-bottom: 18px;
+  --reader-radius: 0px;
+  --body-family: var(--font-sans);
+  --reader-font-scale: 1;
+
+  /*
+   * Liquid Glass material — frosted, refractive translucency with a bright
+   * specular rim and a floating ambient shadow, echoing macOS Tahoe glass.
+   * backdrop-filter is supported in WebView2 (Chromium) so the packaged
+   * Windows app matches.
+   */
+  --glass-blur: blur(36px) saturate(185%) brightness(1.04);
+  --glass-bg: rgba(255, 255, 255, 0.42);
+  --glass-bg-strong: rgba(255, 255, 255, 0.58);
+  --glass-stroke: rgba(255, 255, 255, 0.6);
+  --glass-sheen: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.12) 24%,
+    rgba(255, 255, 255, 0) 55%
+  );
+  --glass-shadow: 0 22px 60px rgba(40, 34, 22, 0.2),
+    0 4px 14px rgba(40, 34, 22, 0.1);
+  --glass-inner-light: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 1px 0 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(120, 110, 90, 0.12);
+}
+
+/* clear · 清读 */
+:root[data-mode="clear"] {
+  --accent: #386b74;
+  --mode-bg: #f6f2e8;
+  --sidebar-bg: #edece4;
+  --sidebar-panel: #fbf8ed;
+  --content-width: 980px;
+  --content-pad: 32px;
+  --section-spacing: 18px;
+  --body-size: 16.5px;
+  --body-line: 1.78;
+  --para-bottom: 18px;
+  --reader-radius: 0px;
+  --body-family: var(--font-sans);
+}
+
+/* paper · 纸页 */
+:root[data-mode="paper"] {
+  --accent: #8a573f;
+  --mode-bg: #f5eedf;
+  --sidebar-bg: #ece3d0;
+  --sidebar-panel: #fbf4e2;
+  --content-width: 900px;
+  --content-pad: 32px;
+  --section-spacing: 26px;
+  --body-size: 17.5px;
+  --body-line: 1.86;
+  --para-bottom: 18px;
+  --reader-radius: 14px;
+  --body-family: var(--font-serif);
+}
+
+/* report · 报告 */
+:root[data-mode="report"] {
+  --accent: #574a8c;
+  --mode-bg: #f2f2fa;
+  --sidebar-bg: #eae9f3;
+  --sidebar-panel: #f7f7fd;
+  --content-width: 1040px;
+  --content-pad: 44px;
+  --section-spacing: 24px;
+  --body-size: 16.5px;
+  --body-line: 1.9;
+  --para-bottom: 24px;
+  --reader-radius: 10px;
+  --body-family: var(--font-sans);
+}
+
+/* lesson · 讲义 */
+:root[data-mode="lesson"] {
+  --accent: #d09c3c;
+  --mode-bg: #f6f1e2;
+  --sidebar-bg: #f0e8d4;
+  --sidebar-panel: #fcf5e4;
+  --content-width: 960px;
+  --content-pad: 40px;
+  --section-spacing: 18px;
+  --body-size: 17.5px;
+  --body-line: 1.82;
+  --para-bottom: 20px;
+  --reader-radius: 18px;
+  --body-family: var(--font-serif);
+}
+
+/* cards · 卡片 */
+:root[data-mode="cards"] {
+  --accent: #944f2e;
+  --mode-bg: #f7f0e6;
+  --sidebar-bg: #f1e4d9;
+  --sidebar-panel: #fcf1e6;
+  --content-width: 760px;
+  --content-pad: 28px;
+  --section-spacing: 18px;
+  --body-size: 16.5px;
+  --body-line: 1.78;
+  --para-bottom: 14px;
+  --reader-radius: 22px;
+  --body-family: var(--font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background: var(--mode-bg);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
