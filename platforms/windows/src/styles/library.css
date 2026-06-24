@@ -18,22 +18,13 @@
     var(--canvas);
 }
 
-.library__mark {
-  width: 76px;
-  height: 76px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, var(--cobalt), var(--teal));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 18px 40px rgba(51, 79, 158, 0.3);
+.library__logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
   margin-bottom: 24px;
-}
-
-.library__mark svg {
-  width: 40px;
-  height: 40px;
-  color: #fff;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 34px rgba(40, 34, 22, 0.26));
 }
 
 .library__title {

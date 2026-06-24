@@ -8,6 +8,7 @@ import "./styles/export.css";
 import "./styles/library.css";
 import "highlight.js/styles/github.css";
 
+import markgoIcon from "./assets/markgo-icon.png";
 import { READING_MODES, DEFAULT_MODE, type ReadingModeId } from "./modes";
 import { analyze, type MarkdownAnalysis } from "./analysis";
 import { renderReader, installScrollSpy } from "./reader";
@@ -132,7 +133,7 @@ function render(): void {
 function libraryHtml(): string {
   return `
     <div class="library">
-      <div class="library__mark">${icon(ICONS.doc, 40)}</div>
+      <img class="library__logo" src="${markgoIcon}" alt="MarkGo" width="88" height="88" />
       <h1 class="library__title">MarkGo</h1>
       <p class="library__tagline">为 Windows 打造的 Markdown 阅读与演示器 · 与 macOS 同源设计</p>
       <div class="library__actions">
@@ -284,7 +285,7 @@ function aboutHtml(): string {
   return `
   <div class="about-backdrop" id="about-backdrop">
     <div class="about">
-      <div class="about__mark">${icon(ICONS.doc, 30)}</div>
+      <img class="about__logo" src="${markgoIcon}" alt="MarkGo" width="64" height="64" />
       <div class="about__name">MarkGo</div>
       <div class="about__version">Windows · v${APP_VERSION}</div>
       <p class="about__tagline">轻量的 Markdown 阅读与呈现器。把 .md 变成可阅读、可分享、可交付的成品。与 macOS 版同源设计。</p>
