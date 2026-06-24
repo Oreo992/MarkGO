@@ -20,6 +20,7 @@ struct DocumentReaderRoot: View {
     @State private var pendingScrollID: String?
     @State private var restoredInitialPosition = false
     @State private var readingPositionCoordinator = ReadingPositionCoordinator()
+    @State private var recentTrackingCoordinator = RecentTrackingCoordinator()
     @StateObject private var readerNavigation = ReaderNavigationState()
     /// Cached parse output. We refresh it from `.task(id:)` so we never re-run
     /// the analyzer in the middle of SwiftUI's render pass and the body itself
@@ -87,19 +88,17 @@ struct DocumentReaderRoot: View {
                 handleExportRequest(request)
             }
             .onAppear {
-                normalizeDocumentTextIfNeeded()
-                analysis = MarkdownAnalysis(text: document.text)
+                refreshDocumentAnalysis()
                 restoreReadingPositionIfNeeded()
-                trackRecent()
+                trackRecentImmediately()
             }
             .task(id: document.text) {
                 // Debounce re-parsing so fast typing in the editor does not
                 // trigger an analyzer pass on every keystroke.
                 try? await Task.sleep(nanoseconds: 120_000_000)
                 if Task.isCancelled { return }
-                normalizeDocumentTextIfNeeded()
-                analysis = MarkdownAnalysis(text: document.text)
-                trackRecent()
+                refreshDocumentAnalysis()
+                scheduleRecentTracking()
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -124,6 +123,7 @@ struct DocumentReaderRoot: View {
         case .edit:
             EditorWorkspace(
                 text: $document.text,
+                analysis: analysis,
                 selectedMode: selectedMode,
                 editorLayout: $editorLayout,
                 fontScale: fontScale,
@@ -190,14 +190,33 @@ struct DocumentReaderRoot: View {
         }
     }
 
-    private func trackRecent() {
-        guard !document.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    private func trackRecentImmediately() {
+        persistRecentDocument(title: resolvedTitle, text: document.text)
+    }
+
+    private func scheduleRecentTracking() {
+        let text = document.text
+        let fingerprint = RecentDocumentFingerprint(text: text)
+        guard recentTrackingCoordinator.lastSavedFingerprint != fingerprint else { return }
+
+        let title = resolvedTitle
+        recentTrackingCoordinator.pendingTask?.cancel()
+        recentTrackingCoordinator.pendingTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard !Task.isCancelled else { return }
+            persistRecentDocument(title: title, text: text)
+        }
+    }
+
+    private func persistRecentDocument(title: String, text: String) {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         RecentDocumentStore.save(
-            title: resolvedTitle,
-            text: document.text,
+            title: title,
+            text: text,
             source: fileURL == nil ? "内联" : "文件",
             fileURL: fileURL
         )
+        recentTrackingCoordinator.lastSavedFingerprint = RecentDocumentFingerprint(text: text)
     }
 
     private func restoreReadingPositionIfNeeded() {
@@ -210,10 +229,12 @@ struct DocumentReaderRoot: View {
         }
     }
 
-    private func normalizeDocumentTextIfNeeded() {
+    private func refreshDocumentAnalysis() {
         let normalized = MarkdownSection.normalize(document.text)
-        guard normalized != document.text else { return }
-        document.text = normalized
+        if normalized != document.text {
+            document.text = normalized
+        }
+        analysis = MarkdownAnalysis(text: normalized)
     }
 
     private func updateReadingPosition(_ sectionID: String) {
@@ -273,6 +294,21 @@ final class ReaderNavigationState: ObservableObject {
 final class ReadingPositionCoordinator {
     var lastPersistedSectionID: String?
     var pendingTask: Task<Void, Never>?
+}
+
+final class RecentTrackingCoordinator {
+    var lastSavedFingerprint: RecentDocumentFingerprint?
+    var pendingTask: Task<Void, Never>?
+}
+
+struct RecentDocumentFingerprint: Equatable {
+    let count: Int
+    let hash: Int
+
+    init(text: String) {
+        count = text.count
+        hash = text.hashValue
+    }
 }
 
 enum WorkspaceMode {

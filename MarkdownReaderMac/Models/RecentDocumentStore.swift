@@ -45,7 +45,7 @@ enum RecentDocumentStore {
             : trimmedTitle
 
         let snippet = makeSnippet(text)
-        let characterCount = text.filter { !$0.isWhitespace }.count
+        let characterCount = nonWhitespaceCount(in: text)
         var documents = load()
 
         let bookmark = fileURL.flatMap {
@@ -165,6 +165,12 @@ enum RecentDocumentStore {
             .prefix(6)
         let joined = lines.joined(separator: "\n")
         return String(joined.prefix(220))
+    }
+
+    private static func nonWhitespaceCount(in text: String) -> Int {
+        text.reduce(0) { count, character in
+            character.isWhitespace ? count : count + 1
+        }
     }
 
     private static func persist(_ documents: [RecentDocument]) {

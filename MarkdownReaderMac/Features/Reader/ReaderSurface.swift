@@ -140,11 +140,19 @@ struct ReaderSurface: View {
 
     private func stableCurrentSection(in positions: [String: CGFloat]) -> String? {
         let anchorY: CGFloat = 138
-        let passedAnchor = positions.filter { $0.value <= anchorY }
-        if let current = passedAnchor.max(by: { $0.value < $1.value }) {
-            return current.key
+        var nearestPassedAnchor: (id: String, y: CGFloat)?
+        var firstVisible: (id: String, y: CGFloat)?
+
+        for (id, y) in positions {
+            if y <= anchorY, nearestPassedAnchor == nil || y > nearestPassedAnchor!.y {
+                nearestPassedAnchor = (id, y)
+            }
+            if firstVisible == nil || y < firstVisible!.y {
+                firstVisible = (id, y)
+            }
         }
-        return positions.min(by: { $0.value < $1.value })?.key
+
+        return nearestPassedAnchor?.id ?? firstVisible?.id
     }
 
     private var progress: Double {
@@ -417,25 +425,54 @@ private struct MarkdownSectionCard: View, Equatable {
 }
 
 private struct MarkGoMarkdownImageProvider: ImageProvider {
-    @ViewBuilder
     func makeImage(url: URL?) -> some View {
-        if let url, url.isFileURL, let image = NSImage(contentsOf: url) {
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            DefaultImageProvider().makeImage(url: url)
+        CachedMarkdownImage(url: url)
+    }
+}
+
+private struct CachedMarkdownImage: View {
+    let url: URL?
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if let url, url.isFileURL {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            } else {
+                DefaultImageProvider.default.makeImage(url: url)
+            }
+        }
+        .task(id: url) {
+            guard let url, url.isFileURL else {
+                image = nil
+                return
+            }
+            image = nil
+            if let cached = MarkdownImageCache.shared.cachedImage(for: url) {
+                image = cached
+                return
+            }
+            image = await MarkdownImageCache.shared.imageAsync(for: url)
         }
     }
 }
 
 private struct MarkGoMarkdownInlineImageProvider: InlineImageProvider {
     func image(with url: URL, label: String) async throws -> Image {
-        if url.isFileURL, let image = NSImage(contentsOf: url) {
+        if let image = MarkdownImageCache.shared.cachedImage(for: url) {
             return Image(nsImage: image)
         }
-        return try await DefaultInlineImageProvider().image(with: url, label: label)
+        if let image = await MarkdownImageCache.shared.imageAsync(for: url) {
+            return Image(nsImage: image)
+        }
+        return try await DefaultInlineImageProvider.default.image(with: url, label: label)
     }
 }
 

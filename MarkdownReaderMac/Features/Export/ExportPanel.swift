@@ -185,7 +185,7 @@ struct ExportPanel: View {
                 .labelsHidden()
             case .html:
                 SectionLabel(title: "HTML 选项")
-                Text("生成内嵌主题样式与中文排版的离线 HTML 文档，双击即可在浏览器中打开。")
+                Text("生成内嵌主题样式与中文排版的 HTML 文档；本地小图会内联，Mermaid 图表需要网络加载运行时。")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(AppPalette.mutedInk)
             case .markdown:
@@ -236,7 +236,8 @@ struct ExportPanel: View {
                 let url = try ExportRunner.saveHTML(
                     title: title,
                     text: text,
-                    theme: selectedTheme
+                    theme: selectedTheme,
+                    sourceURL: sourceURL
                 )
                 status = .success(url)
             case .markdown:

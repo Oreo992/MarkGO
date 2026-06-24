@@ -7,6 +7,7 @@ import MarkdownUI
 /// Mac viewport can be used for live editing alongside the rendered output.
 struct EditorWorkspace: View {
     @Binding var text: String
+    let analysis: MarkdownAnalysis
     let selectedMode: ReadingMode
     @Binding var editorLayout: EditorLayout
     let fontScale: CGFloat
@@ -30,7 +31,7 @@ struct EditorWorkspace: View {
                 SourceEditor(text: $text)
             case .preview:
                 PreviewPane(
-                    text: text,
+                    analysis: analysis,
                     selectedMode: selectedMode,
                     fontScale: fontScale,
                     documentURL: documentURL,
@@ -41,7 +42,7 @@ struct EditorWorkspace: View {
                     SourceEditor(text: $text)
                         .frame(minWidth: 360, idealWidth: 480)
                     PreviewPane(
-                        text: text,
+                        analysis: analysis,
                         selectedMode: selectedMode,
                         fontScale: fontScale,
                         documentURL: documentURL,
@@ -132,16 +133,7 @@ struct SourceEditor: NSViewRepresentable {
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
-            let normalized = MarkdownSection.normalize(textView.string)
-            if normalized != textView.string {
-                let selectedRange = textView.selectedRange()
-                textView.string = normalized
-                textView.setSelectedRange(NSRange(
-                    location: min(selectedRange.location, (normalized as NSString).length),
-                    length: 0
-                ))
-            }
-            text = normalized
+            text = textView.string
         }
     }
 }
@@ -260,13 +252,12 @@ final class EditorCommandBus {
 }
 
 private struct PreviewPane: View {
-    let text: String
+    let analysis: MarkdownAnalysis
     let selectedMode: ReadingMode
     let fontScale: CGFloat
     let documentURL: URL?
     @Binding var pendingScrollID: String?
     @StateObject private var navigationState = ReaderNavigationState()
-    @State private var analysis: MarkdownAnalysis = MarkdownAnalysis(text: "")
 
     var body: some View {
         ZStack {
@@ -281,14 +272,6 @@ private struct PreviewPane: View {
                 navigationState: navigationState,
                 onReadingPositionChange: { _ in }
             )
-        }
-        .onAppear {
-            analysis = MarkdownAnalysis(text: text)
-        }
-        .task(id: text) {
-            try? await Task.sleep(nanoseconds: 120_000_000)
-            if Task.isCancelled { return }
-            analysis = MarkdownAnalysis(text: text)
         }
     }
 }
@@ -314,10 +297,16 @@ private struct EditorToolbar: View {
             ToolButton(title: "分割") { EditorCommandBus.shared.replaceSelection(with: "\n\n---\n\n") }
             ToolButton(title: "代码块") { EditorCommandBus.shared.replaceSelection(with: "\n```\n{}\n```\n", placeholder: "// code") }
             Spacer()
-            Text("\(text.filter { !$0.isWhitespace }.count) 字 · \(text.count) 字符")
+            Text("\(nonWhitespaceCount) 字 · \(text.count) 字符")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppPalette.mutedInk)
                 .monospacedDigit()
+        }
+    }
+
+    private var nonWhitespaceCount: Int {
+        text.reduce(0) { count, character in
+            character.isWhitespace ? count : count + 1
         }
     }
 }

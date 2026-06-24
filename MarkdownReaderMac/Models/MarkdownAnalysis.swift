@@ -7,12 +7,16 @@ struct MarkdownAnalysis: Equatable {
     let text: String
     let headings: [MarkdownHeading]
     let sections: [MarkdownSection]
+    let characterCount: Int
 
     init(text: String) {
         let normalizedText = MarkdownSection.normalize(text)
         self.text = normalizedText
         sections = MarkdownSection.parse(normalizedText)
         headings = sections.compactMap(\.heading)
+        characterCount = normalizedText.reduce(0) { count, character in
+            character.isWhitespace ? count : count + 1
+        }
     }
 
     var title: String {
@@ -39,9 +43,6 @@ struct MarkdownAnalysis: Equatable {
         return fallback
     }
 
-    private var characterCount: Int {
-        text.filter { !$0.isWhitespace }.count
-    }
 }
 
 struct MarkdownHeading: Identifiable, Hashable {
