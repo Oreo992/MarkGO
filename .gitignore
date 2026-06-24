@@ -41,3 +41,10 @@ agent-output/
 
 # Generated marketing assets / screenshot scratch
 marketing/
+
+# Windows build outputs and dependencies
+MarkdownReaderWin/node_modules/
+MarkdownReaderWin/dist/
+MarkdownReaderWin/src-tauri/target/
+MarkdownReaderWin/src-tauri/gen/
+
