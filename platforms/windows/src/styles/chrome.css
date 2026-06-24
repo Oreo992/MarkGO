@@ -83,6 +83,29 @@
   min-width: 252px;
 }
 
+/* Theme the dropdown scrollbar so it blends with the warm menu surface instead
+ * of showing the default gray/white track. */
+.menu__panel--bar::-webkit-scrollbar {
+  width: 11px;
+}
+
+.menu__panel--bar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 6px 0;
+}
+
+.menu__panel--bar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted-ink) 32%, transparent);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.menu__panel--bar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted-ink) 52%, transparent);
+  background-clip: padding-box;
+}
+
 /* Section headers inside the condensed menu (former top-level menu names) */
 .menu__caption--section {
   margin-top: 2px;
