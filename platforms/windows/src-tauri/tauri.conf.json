@@ -34,9 +34,18 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/Oreo992/MarkGO/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhBODEzRDQ1M0E3Njc0QQpSV1JLWjZkVDFCT29DRmxBSUJKb2tFY0FMR2k4K2VuTzIzVFVRL3lyK2FweXZCc1R0cGJPcktpcwo="
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],
+    "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -19,7 +19,7 @@ import {
   wireMenuButton,
   type MenuContext,
 } from "./menus";
-import { pushRecent, clearRecent, type RecentItem } from "./recent";
+import { getRecent, pushRecent, clearRecent, type RecentItem } from "./recent";
 import {
   minimizeWindow,
   toggleMaximizeWindow,
@@ -28,6 +28,7 @@ import {
   openExternalUrl,
   initResizeHandles,
 } from "./window";
+import { checkForUpdate } from "./updater";
 import {
   EXPORT_THEMES,
   PAGE_SIZES,
@@ -137,6 +138,7 @@ function libraryHtml(): string {
         <button class="library__btn library__btn--primary" id="lib-open">${icon(ICONS.folder)} 打开文件</button>
         <button class="library__btn" id="lib-demo">${icon(ICONS.book)} 查看示例文档</button>
       </div>
+      ${recentLibraryHtml()}
       <div class="library__modes">
         ${READING_MODES.map(
           (m) => `
@@ -150,10 +152,53 @@ function libraryHtml(): string {
     </div>`;
 }
 
+function recentLibraryHtml(): string {
+  const recent = getRecent();
+  if (recent.length === 0) return "";
+  return `
+    <div class="library__recent">
+      <div class="library__recent-head">
+        <span class="library__recent-title">最近打开</span>
+        <button class="library__recent-clear" id="lib-recent-clear">清除</button>
+      </div>
+      <div class="library__recent-list">
+        ${recent
+          .map(
+            (r, i) => `
+          <button class="recent-card" data-recent="${i}" title="${escapeText(r.path)}">
+            <span class="recent-card__icon">${icon(ICONS.doc, 17)}</span>
+            <span class="recent-card__text">
+              <span class="recent-card__name">${escapeText(r.name)}</span>
+              <span class="recent-card__path">${escapeText(prettyDir(r.path))}</span>
+            </span>
+          </button>`
+          )
+          .join("")}
+      </div>
+    </div>`;
+}
+
+function prettyDir(path: string): string {
+  const dir = path.replace(/[\\/][^\\/]*$/, "");
+  return dir.length > 48 ? "…" + dir.slice(-47) : dir;
+}
+
 function wireLibrary(): void {
   document.getElementById("lib-open")!.addEventListener("click", handleOpen);
   document.getElementById("lib-demo")!.addEventListener("click", () => {
     loadDocument(DEMO_MARKDOWN, null, "MarkGo 示例");
+  });
+
+  const recent = getRecent();
+  root.querySelectorAll<HTMLButtonElement>(".recent-card").forEach((card) =>
+    card.addEventListener("click", () => {
+      const item = recent[Number(card.dataset.recent)];
+      if (item) handleOpenRecent(item);
+    })
+  );
+  root.querySelector("#lib-recent-clear")?.addEventListener("click", () => {
+    clearRecent();
+    render();
   });
 }
 
@@ -302,6 +347,7 @@ function menuContext(): MenuContext {
     onFont: adjustFont,
     onAbout: openAbout,
     onHomepage: () => void openExternalUrl(HOMEPAGE_URL),
+    onCheckUpdate: () => void checkForUpdate(false),
   };
 }
 
@@ -962,6 +1008,10 @@ document.addEventListener("keydown", (e) => {
 
 // Recreate the OS resize border the frameless window gives up.
 initResizeHandles();
+
+// Silent update check on launch — stays quiet unless a newer signed release
+// is available (no-op until the release pipeline is set up; see README).
+void checkForUpdate(true);
 
 // Keep the custom maximize / restore glyph in sync with the real window state.
 void onMaximizeChange((maximized) => {

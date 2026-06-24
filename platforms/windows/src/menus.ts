@@ -45,6 +45,7 @@ export interface MenuContext {
   onFont: (action: "in" | "out" | "reset") => void;
   onAbout: () => void;
   onHomepage: () => void;
+  onCheckUpdate: () => void;
 }
 
 const LAYOUTS: { id: EditorLayout; label: string }[] = [
@@ -140,6 +141,8 @@ export function buildMenus(ctx: MenuContext): TopMenu[] {
     id: "help",
     label: "帮助",
     nodes: [
+      { kind: "action", label: "检查更新…", run: ctx.onCheckUpdate },
+      { kind: "divider" },
       { kind: "action", label: "关于 MarkGo", run: ctx.onAbout },
       { kind: "action", label: "查看示例文档", run: ctx.onLoadDemo },
       { kind: "action", label: "项目主页", run: ctx.onHomepage },
