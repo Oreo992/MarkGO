@@ -32,8 +32,8 @@ const SEMVER = String.raw`\d+\.\d+\.\d+`;
 const targets = [
   ["package.json", new RegExp(`("version"\\s*:\\s*")${SEMVER}(")`), "package.json", true],
   ["src-tauri/tauri.conf.json", new RegExp(`("version"\\s*:\\s*")${SEMVER}(")`), "tauri.conf.json", true],
-  ["src-tauri/Cargo.toml", new RegExp(`(\\nversion\\s*=\\s*")${SEMVER}(")`), "Cargo.toml", true],
-  ["src-tauri/Cargo.lock", new RegExp(`(name = "markgo-win"\\nversion = ")${SEMVER}(")`), "Cargo.lock", false],
+  ["src-tauri/Cargo.toml", new RegExp(`(\\r?\\nversion\\s*=\\s*")${SEMVER}(")`), "Cargo.toml", true],
+  ["src-tauri/Cargo.lock", new RegExp(`(name = "markgo-win"\\r?\\nversion = ")${SEMVER}(")`), "Cargo.lock", false],
 ];
 
 const changed = [];
