@@ -60,13 +60,12 @@ for (const [file, regex, label, fatal] of targets) {
   console.log(`✔ ${label} → ${version}`);
 }
 
-// Write the release notes the updater shows. Omit --notes to use the default.
-if (notes !== undefined) {
-  const notesPath = resolve(win, ".release-notes.md");
-  writeFileSync(notesPath, notes.trim() + "\n");
-  changed.push("platforms/windows/.release-notes.md");
-  console.log(`✔ .release-notes.md`);
-}
+// Always (re)write the release notes the updater shows, so a release never
+// inherits the previous version's notes. Omit --notes for a generic default.
+const notesBody = notes && notes.trim() ? notes.trim() : "本次更新包含优化与修复。";
+writeFileSync(resolve(win, ".release-notes.md"), notesBody + "\n");
+changed.push("platforms/windows/.release-notes.md");
+console.log(`✔ .release-notes.md`);
 
 const tag = `win-v${version}`;
 // Pass args as an array (no shell) so nothing is interpolated into a command
