@@ -45,6 +45,20 @@ jobs:
         working-directory: platforms/windows
         run: npm install
 
+      # Release notes shown in the in-app updater come from this file (written
+      # by scripts/release-win.mjs). Falls back to a short default.
+      - name: Compose release notes
+        if: github.ref_type == 'tag'
+        id: notes
+        shell: bash
+        run: |
+          f=platforms/windows/.release-notes.md
+          {
+            echo "body<<__NOTES_EOF__"
+            if [ -s "$f" ]; then cat "$f"; else echo "本次更新包含优化与修复。"; fi
+            echo "__NOTES_EOF__"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build & publish release (on tag)
         if: github.ref_type == 'tag'
         uses: tauri-apps/tauri-action@v0
@@ -54,13 +68,7 @@ jobs:
           projectPath: platforms/windows
           tagName: ${{ github.ref_name }}
           releaseName: "MarkGo for Windows ${{ github.ref_name }}"
-          releaseBody: |
-            MarkGo for Windows 安装包（由 GitHub Actions 自动构建）。
-
-            - `MarkGo_*_x64-setup.exe` — NSIS 安装程序（推荐）
-            - `MarkGo_*_x64_en-US.msi` — MSI 安装程序
-
-            首次安装如需 WebView2 运行时，安装程序会自动引导。
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false
 

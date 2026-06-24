@@ -28,7 +28,7 @@ import {
   openExternalUrl,
   initResizeHandles,
 } from "./window";
-import { checkForUpdate } from "./updater";
+import { checkUpdate, type UpdateInfo } from "./updater";
 import {
   EXPORT_THEMES,
   PAGE_SIZES,
@@ -116,7 +116,8 @@ function render(): void {
     ${chromeHtml(menus)}
     ${state.hasDocument ? workspaceHtml() : libraryHtml()}
     ${exportSheetHtml()}
-    ${aboutHtml()}`;
+    ${aboutHtml()}
+    ${updateHtml()}`;
 
   wireChrome(menus);
   if (state.hasDocument) {
@@ -295,6 +296,28 @@ function aboutHtml(): string {
   </div>`;
 }
 
+// Custom update card (replaces the native OS update dialog). Version + notes
+// are filled in by showUpdate() when an update is found.
+function updateHtml(): string {
+  return `
+  <div class="about-backdrop" id="update-backdrop">
+    <div class="about update-card">
+      <div class="update-card__badge">${icon(ICONS.upload, 26)}</div>
+      <div class="about__name">发现新版本</div>
+      <div class="update-card__ver">
+        <span class="update-card__new" id="update-new"></span>
+        <span class="update-card__old" id="update-old"></span>
+      </div>
+      <div class="update-card__notes" id="update-notes"></div>
+      <div class="update-card__status" id="update-status"></div>
+      <div class="about__actions">
+        <button class="about__btn" id="update-later">稍后</button>
+        <button class="about__btn about__btn--primary" id="update-now">立即更新</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function layoutSegmentHtml(): string {
   const layouts: { id: EditorLayout; label: string }[] = [
     { id: "source", label: "源码" },
@@ -347,7 +370,7 @@ function menuContext(): MenuContext {
     onFont: adjustFont,
     onAbout: openAbout,
     onHomepage: () => void openExternalUrl(HOMEPAGE_URL),
-    onCheckUpdate: () => void checkForUpdate(false),
+    onCheckUpdate: () => void handleCheckUpdate(false),
   };
 }
 
@@ -365,6 +388,12 @@ function wireChrome(menus: ReturnType<typeof buildMenus>): void {
   });
   root.querySelector("#about-close")!.addEventListener("click", closeAbout);
   root.querySelector("#about-home")!.addEventListener("click", () => void openExternalUrl(HOMEPAGE_URL));
+
+  root.querySelector("#update-backdrop")!.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeUpdate();
+  });
+  root.querySelector("#update-later")!.addEventListener("click", closeUpdate);
+  root.querySelector("#update-now")!.addEventListener("click", () => void runPendingUpdate());
 }
 
 // Wires the document-only inline tools (workspace switch, modes, font, export).
@@ -408,6 +437,87 @@ function openAbout(): void {
 
 function closeAbout(): void {
   root.querySelector("#about-backdrop")?.classList.remove("open");
+}
+
+// ---- Update flow ----
+
+let pendingUpdate: UpdateInfo | null = null;
+let updating = false;
+
+async function handleCheckUpdate(silent: boolean): Promise<void> {
+  try {
+    const update = await checkUpdate();
+    if (!update) {
+      if (!silent) toast("当前已是最新版本");
+      return;
+    }
+    pendingUpdate = update;
+    showUpdate(update);
+  } catch {
+    if (!silent) toast("检查更新失败，请稍后重试");
+  }
+}
+
+function showUpdate(update: UpdateInfo): void {
+  root.querySelector("#update-new")!.textContent = `v${update.version}`;
+  root.querySelector("#update-old")!.textContent = `当前 v${update.currentVersion}`;
+  (root.querySelector("#update-notes") as HTMLElement).innerHTML = formatNotes(update.notes);
+  root.querySelector("#update-status")!.textContent = "";
+  setUpdateBusy(false);
+  root.querySelector("#update-backdrop")!.classList.add("open");
+}
+
+// Render notes as simple paragraphs; strips leading list markers. Text is
+// escaped (release bodies are author-controlled, but stay safe).
+function formatNotes(notes: string): string {
+  const trimmed = notes.trim();
+  if (!trimmed) return `<p class="update-card__note-line">本次更新包含优化与修复。</p>`;
+  return trimmed
+    .split(/\n+/)
+    .map((line) => `<p class="update-card__note-line">${escapeText(line.replace(/^[-*]\s*/, ""))}</p>`)
+    .join("");
+}
+
+function setUpdateBusy(busy: boolean): void {
+  updating = busy;
+  root.querySelector<HTMLButtonElement>("#update-now")!.disabled = busy;
+  root.querySelector<HTMLButtonElement>("#update-later")!.disabled = busy;
+}
+
+function closeUpdate(): void {
+  if (updating) return;
+  root.querySelector("#update-backdrop")?.classList.remove("open");
+}
+
+async function runPendingUpdate(): Promise<void> {
+  if (!pendingUpdate) return;
+  const status = root.querySelector<HTMLElement>("#update-status")!;
+  setUpdateBusy(true);
+  status.textContent = "正在下载…";
+  try {
+    await pendingUpdate.install((pct) => {
+      status.textContent = pct == null ? "正在下载…" : `正在下载… ${pct}%`;
+    });
+    status.textContent = "即将重启以完成更新…";
+  } catch {
+    status.textContent = "更新失败，请稍后重试。";
+    setUpdateBusy(false);
+  }
+}
+
+let toastTimer = 0;
+function toast(message: string): void {
+  let el = document.getElementById("app-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "app-toast";
+    el.className = "app-toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add("show");
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => el?.classList.remove("show"), 2600);
 }
 
 function setupMenu(triggerSel: string, panelSel: string): void {
@@ -961,6 +1071,7 @@ document.addEventListener("keydown", (e) => {
   if (!mod) {
     if (e.key === "Escape") {
       closeAbout();
+      closeUpdate();
       closeMenus();
     }
     return;
@@ -1010,8 +1121,8 @@ document.addEventListener("keydown", (e) => {
 initResizeHandles();
 
 // Silent update check on launch — stays quiet unless a newer signed release
-// is available (no-op until the release pipeline is set up; see README).
-void checkForUpdate(true);
+// is available, in which case the custom update card is shown.
+void handleCheckUpdate(true);
 
 // Keep the custom maximize / restore glyph in sync with the real window state.
 void onMaximizeChange((maximized) => {

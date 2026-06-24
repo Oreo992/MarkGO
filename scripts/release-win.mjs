@@ -5,8 +5,11 @@
 // the in-app auto-updater reads.
 //
 // Usage:
-//   node scripts/release-win.mjs <x.y.z>           # bump, commit, tag (no push)
-//   node scripts/release-win.mjs <x.y.z> --push    # also push commit + tag
+//   node scripts/release-win.mjs <x.y.z> [--notes "更新说明"] [--push]
+//
+// --notes  writes the in-app/Release update announcement for this version
+//          (shown by the auto-updater). Omit for a generic default.
+// --push   also push the commit + tag (triggers the release build).
 //
 // Run from the repo root (or anywhere — paths resolve relative to this file).
 
@@ -15,11 +18,14 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-const version = process.argv[2];
-const push = process.argv.includes("--push");
+const args = process.argv.slice(2);
+const version = args[0];
+const push = args.includes("--push");
+const notesIdx = args.indexOf("--notes");
+const notes = notesIdx !== -1 ? args[notesIdx + 1] : undefined;
 
 if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
-  console.error("用法: node scripts/release-win.mjs <x.y.z> [--push]");
+  console.error('用法: node scripts/release-win.mjs <x.y.z> [--notes "更新说明"] [--push]');
   process.exit(1);
 }
 
@@ -54,10 +60,18 @@ for (const [file, regex, label, fatal] of targets) {
   console.log(`✔ ${label} → ${version}`);
 }
 
+// Write the release notes the updater shows. Omit --notes to use the default.
+if (notes !== undefined) {
+  const notesPath = resolve(win, ".release-notes.md");
+  writeFileSync(notesPath, notes.trim() + "\n");
+  changed.push("platforms/windows/.release-notes.md");
+  console.log(`✔ .release-notes.md`);
+}
+
 const tag = `win-v${version}`;
 // Pass args as an array (no shell) so nothing is interpolated into a command
 // string; `version` is already validated as strict semver above.
-const git = (...args) => execFileSync("git", args, { cwd: root, stdio: "inherit" });
+const git = (...cmd) => execFileSync("git", cmd, { cwd: root, stdio: "inherit" });
 
 git("add", ...changed);
 git("commit", "-m", `release(windows): v${version}`);

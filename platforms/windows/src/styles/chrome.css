@@ -361,3 +361,96 @@
   border-color: transparent;
   color: #fff;
 }
+
+.about__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- Update card (custom, replaces the native update dialog) ---- */
+.update-card {
+  width: 392px;
+}
+
+.update-card__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  margin-bottom: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--teal), var(--cobalt));
+  box-shadow: 0 6px 18px rgba(40, 34, 22, 0.18);
+}
+
+.update-card__ver {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.update-card__new {
+  font: 800 16px var(--font-mono);
+  color: var(--accent);
+}
+
+.update-card__old {
+  font: 600 12px var(--font-mono);
+  color: var(--muted-ink);
+}
+
+.update-card__notes {
+  margin: 16px 0 4px;
+  padding: 14px 16px;
+  max-height: 230px;
+  overflow-y: auto;
+  text-align: left;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper) 60%, transparent);
+  border: 1px solid var(--line);
+}
+
+.update-card__note-line {
+  margin: 0 0 7px;
+  font: 500 13px var(--font-sans);
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--ink) 82%, transparent);
+}
+
+.update-card__note-line:last-child {
+  margin-bottom: 0;
+}
+
+.update-card__status {
+  min-height: 16px;
+  margin: 12px 0 14px;
+  font: 600 12.5px var(--font-sans);
+  color: var(--accent);
+}
+
+/* ---- Toast (lightweight transient status) ---- */
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 36px;
+  transform: translate(-50%, 12px);
+  z-index: 90;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+  color: #fff;
+  font: 600 13px var(--font-sans);
+  box-shadow: 0 8px 24px rgba(20, 16, 10, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.app-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
