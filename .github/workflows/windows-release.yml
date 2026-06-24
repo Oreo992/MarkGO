@@ -18,6 +18,12 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # Updater signing — required because bundle.createUpdaterArtifacts is on.
+      # Add TAURI_SIGNING_PRIVATE_KEY (and _PASSWORD if the key has one) as repo
+      # secrets. Applies to both the tag release and the manual build.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,11 +50,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Auto-updater signing. Add these as repo secrets, then flip
-          # bundle.createUpdaterArtifacts to true in tauri.conf.json so tag
-          # builds emit signed bundles + latest.json for the updater.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: platforms/windows
           tagName: ${{ github.ref_name }}

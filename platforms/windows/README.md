@@ -69,3 +69,32 @@ npm run tauri:build    # produce the Windows installer (.msi / NSIS .exe)
 > **Icons:** `tauri build` needs `src-tauri/icons/`. Generate them once with
 > `npm run tauri icon path/to/logo.png` (Tauri creates every required size,
 > including `icon.ico`).
+
+## Auto-update & releasing
+
+The app self-updates via the Tauri updater plugin: on launch (and from
+帮助 ▸ 检查更新) it reads `latest.json` from the GitHub *latest* Release,
+verifies the signature against the embedded public key
+(`plugins.updater.pubkey` in `tauri.conf.json`), then downloads + installs the
+signed package and relaunches.
+
+**One-time setup (already done in this repo):**
+
+1. A signing keypair was generated (`tauri signer generate`). The **public** key
+   lives in `tauri.conf.json`; the **private** key is a repo secret.
+2. Repo secret `TAURI_SIGNING_PRIVATE_KEY` holds the private key contents
+   (`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` too, only if the key has a password).
+3. `bundle.createUpdaterArtifacts: true` makes `tauri build` emit the signed
+   `*.sig` bundles + `latest.json`, which `tauri-action` attaches to the Release.
+
+**Cutting a release** (bumps the version in package.json, tauri.conf.json,
+Cargo.toml, Cargo.lock, then commits + tags):
+
+```bash
+node scripts/release-win.mjs 1.0.1 --push
+```
+
+Pushing the `win-v1.0.1` tag runs `.github/workflows/windows-release.yml`,
+which builds the signed installers and publishes a GitHub Release. Installed
+copies on an older version pick it up automatically. The new version must be
+**higher** than what users have installed for the update to trigger.
