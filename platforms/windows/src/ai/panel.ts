@@ -9,6 +9,7 @@ export interface AiPanelDeps {
   getDoc: () => string;
   getStatus: () => { hasKey: boolean };
   openSettings: () => void;
+  history: ChatMessage[];
 }
 
 export function renderAiMarkdown(md: string): string {
@@ -46,7 +47,7 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
   const input = root.querySelector<HTMLTextAreaElement>("#ai-input")!;
   const sendBtn = root.querySelector<HTMLButtonElement>("#ai-send")!;
   const form = root.querySelector<HTMLFormElement>("#ai-compose")!;
-  const history: ChatMessage[] = [];
+  const history = deps.history;
   let active: StreamHandle | null = null;
 
   function renderEmpty(): void {
@@ -159,7 +160,23 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
     }
   });
 
-  renderEmpty();
+  function renderHistory(): void {
+    if (history.length === 0) {
+      renderEmpty();
+      return;
+    }
+    transcript.innerHTML = "";
+    for (const m of history) {
+      const el = bubble(m.role as "user" | "assistant");
+      if (m.role === "user") {
+        el.textContent = m.content;
+      } else {
+        el.innerHTML = renderAiMarkdown(m.content);
+      }
+    }
+  }
+
+  renderHistory();
 
   return {
     reset(): void {
