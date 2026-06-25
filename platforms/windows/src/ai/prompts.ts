@@ -38,3 +38,19 @@ export function buildRequest(
   const { system, truncated } = systemPrompt(doc);
   return { system, messages: history, truncated };
 }
+
+// Whole-document rewrite: returns ONLY the revised Markdown so it can be applied
+// back to the document. `instruction` is the user's rewrite request.
+export function rewriteUserMessage(instruction: string): string {
+  return (
+    "请按下面的要求改写这篇文档。只输出改写后的【完整 Markdown 正文】，" +
+    "保留原有结构与信息，不要添加任何解释、前言或代码围栏包裹。\n\n要求：" +
+    instruction
+  );
+}
+
+export const REWRITE_PRESETS: { label: string; instruction: string }[] = [
+  { label: "润色全文", instruction: "在不改变原意的前提下润色语言，使表达更通顺自然。" },
+  { label: "改成正式", instruction: "改写为正式、书面、专业的口吻。" },
+  { label: "改得简洁", instruction: "在保留关键信息的前提下精简，删除冗余。" },
+];

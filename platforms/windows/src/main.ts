@@ -47,7 +47,6 @@ import {
 import { DEMO_MARKDOWN } from "./demo";
 import { getAiStatus } from "./ai/client";
 import { aiPanelHtml, createAiPanel } from "./ai/panel";
-import type { ChatMessage } from "./ai/types";
 import { settingsModalHtml, wireSettings, openSettings, closeSettings } from "./ai/settings";
 
 type WorkspaceMode = "read" | "edit";
@@ -89,7 +88,6 @@ let aiOpen = false;
 let aiStatus = { hasKey: false };
 let aiPanel: { reset: () => void; refreshState: () => void } | null = null;
 let aiConsented = localStorage.getItem("markgo.ai.consent") === "1";
-let aiHistory: ChatMessage[] = [];
 
 function icon(path: string, size = 16): string {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>`;
@@ -140,10 +138,11 @@ function render(): void {
     if (aiOpen) {
       aiPanel = createAiPanel(root.querySelector(".ai-panel")!, {
         getDoc: () => state.text,
+        getDocName: () => documentTitle(),
         getStatus: () => aiStatus,
         openSettings: () => openAiSettings(),
         onClose: () => void toggleAi(),
-        history: aiHistory,
+        onApplyRewrite: (md) => applyRewrite(md),
       });
     }
   } else {
@@ -886,10 +885,19 @@ function loadDocument(text: string, path: string | null, name: string | null): v
   state.displayName = name;
   state.analysis = analyze(normalized);
   state.hasDocument = true;
-  aiHistory.length = 0;
-  aiPanel?.reset();
   if (path) pushRecent({ path, name: name || state.analysis.title });
   render();
+}
+
+// Apply an AI-rewritten full Markdown document back into the in-app document.
+// Updates the reader/editor + outline in place (the panel is left intact). The
+// user saves via 导出 Markdown, consistent with the rest of the app.
+function applyRewrite(markdown: string): void {
+  state.text = markdown;
+  state.analysis = analyze(markdown);
+  renderContent();
+  refreshSidebar();
+  if (state.workspace === "edit" && state.layout !== "source") refreshPreview();
 }
 
 async function handleOpen(): Promise<void> {
