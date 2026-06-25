@@ -1,6 +1,8 @@
 // MarkGo Windows shell. Thin Rust host that wires the dialog/fs/opener plugins
 // and exposes a couple of helper commands to the WebView2 frontend.
 
+mod ai;
+
 use std::path::Path;
 
 #[derive(serde::Serialize)]
@@ -25,6 +27,7 @@ fn read_markdown(path: String) -> Result<OpenedDocument, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default()
+        .manage(ai::AiState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -38,7 +41,13 @@ pub fn run() {
     }
 
     builder
-        .invoke_handler(tauri::generate_handler![read_markdown])
+        .invoke_handler(tauri::generate_handler![
+            read_markdown,
+            ai::ai_set_config,
+            ai::ai_get_status,
+            ai::ai_stream,
+            ai::ai_cancel
+        ])
         .run(tauri::generate_context!())
         .expect("error while running MarkGo");
 }
