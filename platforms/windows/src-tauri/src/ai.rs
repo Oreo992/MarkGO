@@ -112,9 +112,12 @@ pub struct AiConfig {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AiStatus {
     pub provider: String,
     pub model: String,
+    // Serialized as `hasKey` for the TS side. Tauri converts command *args*
+    // camel↔snake, but NOT return values — so the struct must match TS itself.
     pub has_key: bool,
 }
 
