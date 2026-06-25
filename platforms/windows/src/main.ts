@@ -1,6 +1,7 @@
 import "./styles/tokens.css";
 import "./styles/app.css";
 import "./styles/chrome.css";
+import "./ai/styles/ai.css";
 import "./styles/sidebar.css";
 import "./styles/reader.css";
 import "./styles/editor.css";
