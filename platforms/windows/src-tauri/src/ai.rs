@@ -218,9 +218,20 @@ pub async fn ai_stream(
     };
     if !resp.status().is_success() {
         let code = resp.status();
-        let text = resp.text().await.unwrap_or_default();
+        let body = resp.text().await.unwrap_or_default();
         state.active.lock().unwrap().remove(&request_id);
-        emit_err(format!("{code}: {}", text.chars().take(300).collect::<String>()));
+        // 绝不回显原始 body:代理可能在错误体里反射请求头(含 Authorization key)。
+        // 只取 provider 结构化错误里的 error.message,否则用通用提示。
+        let detail = serde_json::from_str::<Value>(&body)
+            .ok()
+            .and_then(|v| {
+                v.get("error")
+                    .and_then(|e| e.get("message"))
+                    .and_then(|m| m.as_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| "请求被拒绝，请检查 API key、模型名或额度".to_string());
+        emit_err(format!("{code}：{}", detail.chars().take(300).collect::<String>()));
         return Ok(());
     }
 

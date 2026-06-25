@@ -123,6 +123,7 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
         onError: (m) => {
           aiEl.innerHTML = `<div class="ai-error">出错了：${esc(m)} <button class="ai-retry" id="ai-retry">重试</button></div>`;
           aiEl.querySelector("#ai-retry")!.addEventListener("click", () => {
+            if (active) return;
             history.pop(); // drop the failed user turn we re-send
             aiEl.remove();
             userEl.remove();
