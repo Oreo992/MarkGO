@@ -27,7 +27,14 @@ pub struct ChatMessage {
 
 pub fn endpoint(p: Provider, base_url: Option<&str>) -> String {
     match p {
-        Provider::Anthropic => "https://api.anthropic.com/v1/messages".to_string(),
+        Provider::Anthropic => {
+            // Respect base_url so Anthropic-compatible endpoints (e.g. DeepSeek's
+            // https://api.deepseek.com/anthropic) work, not just the official API.
+            let base = base_url
+                .map(|b| b.trim_end_matches('/').to_string())
+                .unwrap_or_else(|| "https://api.anthropic.com".to_string());
+            format!("{base}/v1/messages")
+        }
         Provider::OpenAi => {
             let base = base_url
                 .map(|b| b.trim_end_matches('/').to_string())
@@ -278,10 +285,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn anthropic_endpoint_is_fixed() {
+    fn anthropic_endpoint_defaults_and_respects_base_url() {
         assert_eq!(
             endpoint(Provider::Anthropic, None),
             "https://api.anthropic.com/v1/messages"
+        );
+        assert_eq!(
+            endpoint(Provider::Anthropic, Some("https://api.deepseek.com/anthropic")),
+            "https://api.deepseek.com/anthropic/v1/messages"
         );
     }
 
