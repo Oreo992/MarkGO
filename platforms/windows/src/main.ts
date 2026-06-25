@@ -142,6 +142,7 @@ function render(): void {
         getDoc: () => state.text,
         getStatus: () => aiStatus,
         openSettings: () => openAiSettings(),
+        onClose: () => void toggleAi(),
         history: aiHistory,
       });
     }

@@ -9,6 +9,7 @@ export interface AiPanelDeps {
   getDoc: () => string;
   getStatus: () => { hasKey: boolean };
   openSettings: () => void;
+  onClose: () => void;
   history: ChatMessage[];
 }
 
@@ -160,6 +161,10 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
       form.requestSubmit();
     }
   });
+
+  // Header buttons: ⚙ opens AI settings, ✕ closes the panel.
+  root.querySelector("#ai-open-settings")!.addEventListener("click", () => deps.openSettings());
+  root.querySelector("#ai-panel-close")!.addEventListener("click", () => deps.onClose());
 
   function renderHistory(): void {
     if (history.length === 0) {
