@@ -1,7 +1,7 @@
 {
   "name": "markgo-win",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.1.0",
   "type": "module",
   "description": "MarkGo for Windows — Tauri (Rust) shell + WebView2 renderer",
   "scripts": {
