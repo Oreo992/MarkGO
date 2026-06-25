@@ -48,3 +48,6 @@ platforms/windows/dist/
 platforms/windows/src-tauri/target/
 platforms/windows/src-tauri/gen/
 
+
+# Subagent-driven-development scratch
+.superpowers/
