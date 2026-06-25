@@ -45,6 +45,9 @@ import {
   type ImageWidthId,
 } from "./export";
 import { DEMO_MARKDOWN } from "./demo";
+import { getAiStatus } from "./ai/client";
+import { aiPanelHtml, createAiPanel } from "./ai/panel";
+import { settingsModalHtml, wireSettings, openSettings, closeSettings } from "./ai/settings";
 
 type WorkspaceMode = "read" | "edit";
 type EditorLayout = "source" | "split" | "preview";
@@ -81,6 +84,10 @@ const state: AppState = {
 const root = document.getElementById("app")!;
 let detachScrollSpy: (() => void) | null = null;
 let reparseTimer = 0;
+let aiOpen = false;
+let aiStatus = { hasKey: false };
+let aiPanel: { reset: () => void; refreshState: () => void } | null = null;
+let aiConsented = localStorage.getItem("markgo.ai.consent") === "1";
 
 function icon(path: string, size = 16): string {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>`;
@@ -119,15 +126,25 @@ function render(): void {
     ${state.hasDocument ? workspaceHtml() : libraryHtml()}
     ${exportSheetHtml()}
     ${aboutHtml()}
-    ${updateHtml()}`;
+    ${updateHtml()}
+    ${settingsModalHtml()}`;
 
   wireChrome(menus);
   if (state.hasDocument) {
     wireInlineTools();
     wireSidebar();
     renderContent();
+    wireAiSettings();
+    if (aiOpen) {
+      aiPanel = createAiPanel(root.querySelector(".ai-panel")!, {
+        getDoc: () => state.text,
+        getStatus: () => aiStatus,
+        openSettings: () => openAiSettings(),
+      });
+    }
   } else {
     wireLibrary();
+    wireAiSettings();
   }
 }
 
@@ -210,6 +227,7 @@ function workspaceHtml(): string {
     <div class="workspace">
       ${sidebarHtml()}
       <div class="workspace__content" id="content"></div>
+      ${aiOpen ? aiPanelHtml() : ""}
     </div>`;
 }
 
@@ -242,6 +260,7 @@ function chromeHtml(menus: ReturnType<typeof buildMenus>): string {
 
   const rightTools = doc
     ? `
+      <button class="tool-btn ${aiOpen ? "tool-btn--prominent" : ""}" id="ai-toggle" title="AI 助手">✦ AI</button>
       <div class="menu" id="font-menu">
         <button class="tool-btn" id="font-btn" title="阅读字号">${icon(ICONS.type)}</button>
         ${fontPopoverHtml()}
@@ -373,6 +392,8 @@ function menuContext(): MenuContext {
     onAbout: openAbout,
     onHomepage: () => void openExternalUrl(HOMEPAGE_URL),
     onCheckUpdate: () => void handleCheckUpdate(false),
+    onToggleAi: () => void toggleAi(),
+    onAiSettings: () => openAiSettings(),
   };
 }
 
@@ -413,6 +434,7 @@ function wireInlineTools(): void {
     btn.addEventListener("click", () => setLayout(btn.dataset.layout as EditorLayout))
   );
 
+  root.querySelector("#ai-toggle")?.addEventListener("click", () => void toggleAi());
   setupMenu("#font-btn", "#font-popover");
   setupMenu("#export-btn", "#export-panel");
 
@@ -439,6 +461,31 @@ function openAbout(): void {
 
 function closeAbout(): void {
   root.querySelector("#about-backdrop")?.classList.remove("open");
+}
+
+function wireAiSettings(): void {
+  wireSettings(root, () => {
+    void getAiStatus().then((s) => {
+      aiStatus = { hasKey: s.hasKey };
+      aiPanel?.refreshState();
+    });
+  });
+}
+
+function openAiSettings(): void { openSettings(root); }
+function closeAiSettings(): void { closeSettings(root); }
+
+async function toggleAi(): Promise<void> {
+  aiOpen = !aiOpen;
+  if (aiOpen && !aiConsented) {
+    const ok = window.confirm(
+      "AI 功能会把当前文档内容发送给你配置的服务商（Anthropic / OpenAI）进行处理。是否继续？"
+    );
+    if (!ok) { aiOpen = false; return; }
+    aiConsented = true;
+    localStorage.setItem("markgo.ai.consent", "1");
+  }
+  render();
 }
 
 // ---- Update flow ----
@@ -835,6 +882,7 @@ function loadDocument(text: string, path: string | null, name: string | null): v
   state.displayName = name;
   state.analysis = analyze(normalized);
   state.hasDocument = true;
+  aiPanel?.reset();
   if (path) pushRecent({ path, name: name || state.analysis.title });
   render();
 }
@@ -1075,6 +1123,7 @@ document.addEventListener("keydown", (e) => {
       closeAbout();
       closeUpdate();
       closeMenus();
+      closeAiSettings();
     }
     return;
   }
@@ -1125,6 +1174,7 @@ initResizeHandles();
 // Silent update check on launch — stays quiet unless a newer signed release
 // is available, in which case the custom update card is shown.
 void handleCheckUpdate(true);
+void getAiStatus().then((s) => { aiStatus = { hasKey: s.hasKey }; }).catch(() => {});
 
 // Keep the custom maximize / restore glyph in sync with the real window state.
 void onMaximizeChange((maximized) => {

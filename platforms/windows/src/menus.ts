@@ -46,6 +46,8 @@ export interface MenuContext {
   onAbout: () => void;
   onHomepage: () => void;
   onCheckUpdate: () => void;
+  onToggleAi: () => void;
+  onAiSettings: () => void;
 }
 
 const LAYOUTS: { id: EditorLayout; label: string }[] = [
@@ -134,6 +136,9 @@ export function buildMenus(ctx: MenuContext): TopMenu[] {
       { kind: "action", label: "放大字号", hint: "Ctrl+=", run: () => ctx.onFont("in"), disabled: !doc },
       { kind: "action", label: "缩小字号", hint: "Ctrl+-", run: () => ctx.onFont("out"), disabled: !doc },
       { kind: "action", label: "重置字号", hint: "Ctrl+0", run: () => ctx.onFont("reset"), disabled: !doc },
+      { kind: "divider" },
+      { kind: "action", label: "AI 助手", run: ctx.onToggleAi, disabled: !doc },
+      { kind: "action", label: "AI 设置…", run: ctx.onAiSettings },
     ],
   };
 
