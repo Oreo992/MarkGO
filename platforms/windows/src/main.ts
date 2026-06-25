@@ -886,6 +886,7 @@ function loadDocument(text: string, path: string | null, name: string | null): v
   state.analysis = analyze(normalized);
   state.hasDocument = true;
   if (path) pushRecent({ path, name: name || state.analysis.title });
+  aiPanel?.reset(); // start a fresh AI session for the new doc (keeps old ones)
   render();
 }
 

@@ -110,11 +110,3 @@ export function deleteSession(id: string): void {
     else localStorage.removeItem(ACTIVE_KEY);
   }
 }
-
-export function renameSession(id: string, title: string): void {
-  const list = load();
-  const s = list.find((x) => x.id === id);
-  if (!s) return;
-  s.title = title.trim() || s.title;
-  persist(list);
-}

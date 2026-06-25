@@ -13,7 +13,7 @@ import {
   setActiveId,
   type AiSession,
 } from "./sessions";
-import type { QuickAction, StreamHandle } from "./types";
+import type { ChatMessage, QuickAction, StreamHandle } from "./types";
 import { renderMarkdown } from "../markdown";
 
 export interface AiPanelDeps {
@@ -204,11 +204,46 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
   function removeSession(id: string): void {
     deleteSession(id);
     if (id === session.id) {
+      active?.cancel();
+      active = null;
+      setBusy(false);
       session = ensureActive(deps.getDocName());
       renderTitle();
       renderTranscript();
     }
     renderSessionList();
+  }
+
+  // ---- streaming ----
+
+  // Shared streaming driver: streams into `el`, then hands the finished text to
+  // onComplete (or onErr). Centralizes the cursor / active / busy bookkeeping.
+  function runStream(
+    req: { system: string; messages: ChatMessage[]; maxTokens?: number },
+    el: HTMLElement,
+    onComplete: (acc: string) => void,
+    onErr: (msg: string) => void
+  ): void {
+    let acc = "";
+    setBusy(true);
+    active = streamChat(req, {
+      onDelta: (t) => {
+        acc += t;
+        el.innerHTML = renderAiMarkdown(acc) + `<span class="ai-cursor"></span>`;
+        transcript.scrollTop = transcript.scrollHeight;
+      },
+      onDone: () => {
+        el.innerHTML = renderAiMarkdown(acc);
+        active = null;
+        setBusy(false);
+        onComplete(acc);
+      },
+      onError: (m) => {
+        active = null;
+        setBusy(false);
+        onErr(m);
+      },
+    });
   }
 
   // ---- chat ----
@@ -219,18 +254,21 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
       deps.openSettings();
       return;
     }
-    if (session.messages.length === 0) transcript.innerHTML = "";
-    session.messages.push({ role: "user", content: userText });
-    saveSession(session);
+    // Capture the session this turn belongs to, so a mid-stream switch can't
+    // misroute the reply (the visible transcript may change; the reply still
+    // lands in its own session).
+    const target = session;
+    if (target.messages.length === 0) transcript.innerHTML = "";
+    target.messages.push({ role: "user", content: userText });
+    saveSession(target);
     renderTitle();
     const userEl = bubble("user");
     userEl.textContent = userText;
 
     const aiEl = bubble("assistant");
     aiEl.innerHTML = `<span class="ai-cursor"></span>`;
-    let acc = "";
 
-    const { system, messages, truncated } = buildRequest(deps.getDoc(), session.messages);
+    const { system, messages, truncated } = buildRequest(deps.getDoc(), target.messages);
     if (truncated) {
       const note = document.createElement("div");
       note.className = "ai-note";
@@ -238,35 +276,23 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
       transcript.insertBefore(note, aiEl);
     }
 
-    setBusy(true);
-    active = streamChat(
+    runStream(
       { system, messages },
-      {
-        onDelta: (t) => {
-          acc += t;
-          aiEl.innerHTML = renderAiMarkdown(acc) + `<span class="ai-cursor"></span>`;
-          transcript.scrollTop = transcript.scrollHeight;
-        },
-        onDone: () => {
-          aiEl.innerHTML = renderAiMarkdown(acc);
-          session.messages.push({ role: "assistant", content: acc });
-          saveSession(session);
-          active = null;
-          setBusy(false);
-        },
-        onError: (m) => {
-          aiEl.innerHTML = `<div class="ai-error">出错了：${esc(m)} <button class="ai-retry" id="ai-retry">重试</button></div>`;
-          aiEl.querySelector("#ai-retry")!.addEventListener("click", () => {
-            if (active) return;
-            session.messages.pop();
-            saveSession(session);
-            aiEl.remove();
-            userEl.remove();
-            send(userText);
-          });
-          active = null;
-          setBusy(false);
-        },
+      aiEl,
+      (acc) => {
+        target.messages.push({ role: "assistant", content: acc });
+        saveSession(target);
+      },
+      (m) => {
+        aiEl.innerHTML = `<div class="ai-error">出错了：${esc(m)} <button class="ai-retry">重试</button></div>`;
+        aiEl.querySelector(".ai-retry")!.addEventListener("click", () => {
+          if (active) return;
+          target.messages.pop();
+          saveSession(target);
+          aiEl.remove();
+          userEl.remove();
+          send(userText);
+        });
       }
     );
   }
@@ -294,42 +320,29 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
     const card = bubble("assistant");
     card.classList.add("ai-rewrite-preview");
     card.innerHTML = `<span class="ai-cursor"></span>`;
-    let acc = "";
 
     const { system } = buildRequest(deps.getDoc(), []);
-    setBusy(true);
-    active = streamChat(
+    runStream(
       { system, messages: [{ role: "user", content: rewriteUserMessage(instruction) }], maxTokens: 4096 },
-      {
-        onDelta: (t) => {
-          acc += t;
-          card.innerHTML = renderAiMarkdown(acc) + `<span class="ai-cursor"></span>`;
-          transcript.scrollTop = transcript.scrollHeight;
-        },
-        onDone: () => {
-          card.innerHTML = renderAiMarkdown(acc);
-          const bar = document.createElement("div");
-          bar.className = "ai-rewrite-actions";
-          bar.innerHTML = `
-            <button class="ai-btn ai-btn--primary" id="ai-apply">应用到文档</button>
-            <button class="ai-btn" id="ai-discard">放弃</button>`;
-          card.appendChild(bar);
-          bar.querySelector("#ai-apply")!.addEventListener("click", () => {
-            deps.onApplyRewrite(acc);
-            bar.innerHTML = `<span class="ai-applied">已应用到文档 ✓</span>`;
-          });
-          bar.querySelector("#ai-discard")!.addEventListener("click", () => {
-            head.remove();
-            card.remove();
-          });
-          active = null;
-          setBusy(false);
-        },
-        onError: (m) => {
-          card.innerHTML = `<div class="ai-error">改写失败：${esc(m)}</div>`;
-          active = null;
-          setBusy(false);
-        },
+      card,
+      (acc) => {
+        const bar = document.createElement("div");
+        bar.className = "ai-rewrite-actions";
+        bar.innerHTML = `
+          <button class="ai-btn ai-btn--primary" id="ai-apply">应用到文档</button>
+          <button class="ai-btn" id="ai-discard">放弃</button>`;
+        card.appendChild(bar);
+        bar.querySelector("#ai-apply")!.addEventListener("click", () => {
+          deps.onApplyRewrite(acc);
+          bar.innerHTML = `<span class="ai-applied">已应用到文档 ✓</span>`;
+        });
+        bar.querySelector("#ai-discard")!.addEventListener("click", () => {
+          head.remove();
+          card.remove();
+        });
+      },
+      (m) => {
+        card.innerHTML = `<div class="ai-error">改写失败：${esc(m)}</div>`;
       }
     );
   }
@@ -394,8 +407,22 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
   renderTranscript();
 
   return {
+    // Called when a new document is opened. Start a fresh session only if the
+    // current one already has messages (so old chats stay in the list); reuse an
+    // empty session, just updating its document context.
     reset(): void {
-      newSession();
+      active?.cancel();
+      active = null;
+      setBusy(false);
+      hideRewriteBar();
+      if (session.messages.length > 0) {
+        session = createSession(deps.getDocName());
+      } else {
+        session.docName = deps.getDocName();
+        saveSession(session);
+      }
+      renderTitle();
+      renderTranscript();
     },
     refreshState(): void {
       renderTranscript();
