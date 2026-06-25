@@ -41,7 +41,7 @@ for arg in "$@"; do
 done
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROJECT="$REPO_ROOT/MarkdownReaderMac.xcodeproj"
+PROJECT="$REPO_ROOT/platforms/macos/MarkGo.xcodeproj"
 SCHEME="MarkGo"
 APP_NAME="MarkGo"
 DERIVED_DATA="$REPO_ROOT/.build/derivedData"
@@ -83,7 +83,7 @@ codesign \
   --force \
   --deep \
   --sign - \
-  --entitlements "$REPO_ROOT/MarkdownReaderMac/Resources/MarkdownReaderMac.entitlements" \
+  --entitlements "$REPO_ROOT/platforms/macos/MarkGo/Resources/MarkdownReaderMac.entitlements" \
   --options runtime \
   "$APP_BUNDLE" \
   || codesign --force --deep --sign - "$APP_BUNDLE"

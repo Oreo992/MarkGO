@@ -1,8 +1,8 @@
 # MarkGo
 
-<img src="MarkdownReaderMac/Resources/Assets.xcassets/MarkGoLogo.imageset/markgo-logo.png" width="96" alt="MarkGo logo">
+<img src="platforms/macos/MarkGo/Resources/Assets.xcassets/MarkGoLogo.imageset/markgo-logo.png" width="96" alt="MarkGo logo">
 
-[English](Docs/README.en.md)
+[English](docs/README.en.md)
 
 MarkGo 是一个轻量的 Markdown 预览器。
 
@@ -89,7 +89,7 @@ MarkGo 做的事很简单：站在 Markdown 源码和人的阅读之间，把文
 打开项目：
 
 ```bash
-open MarkdownReaderMac.xcodeproj
+open platforms/macos/MarkGo.xcodeproj
 ```
 
 选择 `MarkGo` scheme，在 `My Mac` 上运行。
@@ -105,7 +105,7 @@ open MarkdownReaderMac.xcodeproj
 ### Windows（Tauri）
 
 ```bash
-cd MarkdownReaderWin
+cd platforms/windows
 npm install
 
 # 仅 Web UI，可在任意浏览器中预览（追加 ?demo 加载示例文档）
@@ -123,20 +123,21 @@ Windows 安装包也可由 CI 自动构建：推送 `win-v*` 标签会触发
 ## 项目结构
 
 ```text
-MarkdownReaderMac/          macOS 应用源码（SwiftUI）
-MarkdownReaderWin/          Windows 应用源码（Tauri + TypeScript）
-MarkdownReaderApp/          iOS 应用源码，开发中
-Brand/                      品牌图标源素材
-Docs/                       设计说明和英文 README
+platforms/
+  macos/                    macOS 应用源码（SwiftUI）：MarkGo.xcodeproj + MarkGo/
+  ios/                      iOS 应用源码，开发中（SwiftUI）
+  windows/                  Windows 应用源码（Tauri + WebView2 + TypeScript）
+brand/                      品牌图标源素材
+docs/                       设计说明和英文 README
 scripts/                    本地构建和打包脚本
-test-fixtures/              轻量测试和样本文档
+tests/                      轻量测试和样本文档
 ```
 
 ## 测试
 
 ```bash
-./test-fixtures/run-headless-tests.sh
-swift test-fixtures/test-markdown-analysis.swift
+./tests/run-headless-tests.sh
+swift tests/test-markdown-analysis.swift
 ```
 
 ## 持续更新中

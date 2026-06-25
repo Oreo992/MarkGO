@@ -1,7 +1,0 @@
-node_modules/
-dist/
-*.tsbuildinfo
-
-# Rust / Tauri build artifacts
-src-tauri/target/
-src-tauri/gen/
