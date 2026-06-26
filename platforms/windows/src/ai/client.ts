@@ -87,10 +87,10 @@ export function streamChat(
         requestId,
         system: req.system,
         messages: req.messages,
-        // Chat answers default to 4096 (~2.5k Chinese chars); rewrites pass a
-        // larger explicit ceiling. The old 1024 default silently truncated
-        // anything longer than a short paragraph.
-        maxTokens: req.maxTokens ?? 4096,
+        // Fallback only — the panel always passes the user-configured ceiling.
+        // Default high so long replies aren't truncated (was 1024, which cut off
+        // anything past a short paragraph).
+        maxTokens: req.maxTokens ?? 32768,
       });
     } catch (err) {
       if (!finished) {

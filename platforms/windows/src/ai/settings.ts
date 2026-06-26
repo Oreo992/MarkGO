@@ -34,7 +34,7 @@ export function settingsModalHtml(): string {
       </label>
       <label class="ai-field">
         <span class="ai-field__label">回复长度上限（max tokens）</span>
-        <input id="ai-max-tokens" type="number" min="256" max="128000" step="1024" placeholder="8192" />
+        <input id="ai-max-tokens" type="number" min="256" max="128000" step="1024" placeholder="32768" />
         <span class="ai-field__hint">越大单条回复越长。别超过所用模型的上限，否则会报错（DeepSeek 约 8192，Claude 官方可达 6 万+）。</span>
       </label>
       <label class="ai-field">
@@ -72,7 +72,7 @@ export function wireSettings(root: HTMLElement, onSaved: () => void): void {
   void getAiStatus().then((s) => {
     if (s.provider) providerEl.value = s.provider;
     modelEl.value = s.model || DEFAULT_MODEL[(s.provider as ProviderId) || "anthropic"];
-    maxEl.value = String(s.maxTokens || 8192);
+    maxEl.value = String(s.maxTokens || 32768);
     hasKey = s.hasKey;
     keyStatus.textContent = s.hasKey ? "已配置 ✓" : "";
   });
@@ -97,7 +97,7 @@ export function wireSettings(root: HTMLElement, onSaved: () => void): void {
       msg.textContent = "请填写 API Key";
       return;
     }
-    const maxTokens = Math.min(128000, Math.max(256, Number(maxEl.value) || 8192));
+    const maxTokens = Math.min(128000, Math.max(256, Number(maxEl.value) || 32768));
     maxEl.value = String(maxTokens);
     msg.textContent = "保存中…";
     try {

@@ -85,7 +85,7 @@ const root = document.getElementById("app")!;
 let detachScrollSpy: (() => void) | null = null;
 let reparseTimer = 0;
 let aiOpen = false;
-let aiStatus = { hasKey: false, maxTokens: 8192 };
+let aiStatus = { hasKey: false, maxTokens: 32768 };
 let aiPanel: { reset: () => void; refreshState: () => void } | null = null;
 let aiConsented = localStorage.getItem("markgo.ai.consent") === "1";
 

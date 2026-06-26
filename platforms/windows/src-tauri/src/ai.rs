@@ -140,9 +140,10 @@ use futures_util::StreamExt;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio_util::sync::CancellationToken;
 
-/// Fallback output ceiling when the user hasn't set one. Safe for every provider
-/// (DeepSeek caps at 8192); users can raise it in settings up to their model's max.
-pub const DEFAULT_MAX_TOKENS: u32 = 8192;
+/// Fallback output ceiling when the user hasn't set one. High by default so long
+/// replies aren't cut short; users whose model caps lower (e.g. DeepSeek at 8192)
+/// can dial it down in settings if the provider rejects it.
+pub const DEFAULT_MAX_TOKENS: u32 = 32768;
 
 #[derive(Clone, Deserialize, Serialize, Default)]
 pub struct AiConfig {
