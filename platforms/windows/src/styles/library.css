@@ -32,12 +32,14 @@
   color: var(--ink);
   margin: 0;
   letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 
 .library__tagline {
   font: 500 16px var(--font-sans);
   color: var(--muted-ink);
   margin: 10px 0 32px;
+  text-wrap: pretty;
 }
 
 .library__actions {
@@ -58,11 +60,15 @@
   color: var(--ink);
   font: 600 14px var(--font-sans);
   cursor: pointer;
-  transition: filter 0.15s ease;
+  transition: filter 0.15s ease, transform 0.12s ease;
 }
 
 .library__btn:hover {
   filter: brightness(0.98);
+}
+
+.library__btn:active {
+  transform: scale(0.96);
 }
 
 .library__btn--primary {
@@ -105,11 +111,16 @@
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
 }
 
 .library__recent-clear:hover {
   color: var(--rust);
   background: color-mix(in srgb, var(--rust) 10%, transparent);
+}
+
+.library__recent-clear:active {
+  transform: scale(0.96);
 }
 
 .library__recent-list {
