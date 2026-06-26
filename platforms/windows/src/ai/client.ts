@@ -24,12 +24,16 @@ export async function saveAiConfig(
   provider: ProviderId,
   model: string,
   baseUrl: string | null,
+  maxTokens: number,
   apiKey: string
 ): Promise<void> {
+  // An empty apiKey tells Rust to keep the previously-saved key (so adjusting
+  // only the output ceiling doesn't require re-entering it).
   await invoke("ai_set_config", {
     provider,
     model,
     baseUrl: baseUrl || null,
+    maxTokens,
     apiKey,
   });
 }

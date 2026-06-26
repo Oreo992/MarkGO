@@ -140,12 +140,19 @@ use futures_util::StreamExt;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio_util::sync::CancellationToken;
 
+/// Fallback output ceiling when the user hasn't set one. Safe for every provider
+/// (DeepSeek caps at 8192); users can raise it in settings up to their model's max.
+pub const DEFAULT_MAX_TOKENS: u32 = 8192;
+
 #[derive(Clone, Deserialize, Serialize, Default)]
 pub struct AiConfig {
     pub provider: String,
     pub model: String,
     pub base_url: Option<String>,
     pub api_key: String,
+    // `#[serde(default)]` so configs written before this field still load.
+    #[serde(default)]
+    pub max_tokens: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -156,6 +163,8 @@ pub struct AiStatus {
     // Serialized as `hasKey` for the TS side. Tauri converts command *args*
     // camel↔snake, but NOT return values — so the struct must match TS itself.
     pub has_key: bool,
+    // Effective output ceiling (`maxTokens` on the TS side).
+    pub max_tokens: u32,
 }
 
 #[derive(Default)]
@@ -183,9 +192,20 @@ pub fn ai_set_config(
     provider: String,
     model: String,
     base_url: Option<String>,
+    max_tokens: Option<u32>,
     api_key: String,
 ) -> Result<(), String> {
-    let cfg = AiConfig { provider, model, base_url, api_key };
+    // Merge onto the existing config so adjusting non-key settings (e.g. the
+    // output ceiling) doesn't require re-entering the API key: an empty key
+    // means "keep the saved one".
+    let mut cfg = load_config(&app);
+    cfg.provider = provider;
+    cfg.model = model;
+    cfg.base_url = base_url;
+    cfg.max_tokens = max_tokens;
+    if !api_key.is_empty() {
+        cfg.api_key = api_key;
+    }
     let path = config_path(&app)?;
     std::fs::write(path, serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())
@@ -198,6 +218,7 @@ pub fn ai_get_status(app: AppHandle) -> AiStatus {
         has_key: !cfg.api_key.is_empty(),
         provider: cfg.provider,
         model: cfg.model,
+        max_tokens: cfg.max_tokens.unwrap_or(DEFAULT_MAX_TOKENS),
     }
 }
 
@@ -413,10 +434,20 @@ mod tests {
             model: "m".into(),
             base_url: None,
             api_key: "secret".into(),
+            max_tokens: Some(32000),
         };
         let s = serde_json::to_string(&cfg).unwrap();
         let back: AiConfig = serde_json::from_str(&s).unwrap();
         assert_eq!(back.api_key, "secret");
         assert_eq!(back.provider, "anthropic");
+        assert_eq!(back.max_tokens, Some(32000));
+    }
+
+    #[test]
+    fn config_without_max_tokens_field_still_loads() {
+        // Configs written before max_tokens existed must still deserialize.
+        let legacy = r#"{"provider":"anthropic","model":"m","base_url":null,"api_key":"k"}"#;
+        let cfg: AiConfig = serde_json::from_str(legacy).unwrap();
+        assert_eq!(cfg.max_tokens, None);
     }
 }

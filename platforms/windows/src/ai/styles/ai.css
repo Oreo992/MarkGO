@@ -27,6 +27,7 @@
 .ai-modal__close { position: relative; }
 .ai-field { display: block; margin-bottom: 12px; }
 .ai-field__label { display: block; font: 600 12px var(--font-sans); color: var(--muted-ink); margin-bottom: 5px; }
+.ai-field__hint { display: block; margin-top: 5px; font: 500 11px var(--font-sans); color: var(--muted-ink); line-height: 1.5; text-wrap: pretty; }
 .ai-field input, .ai-field select {
   width: 100%; height: 34px; padding: 0 10px; border-radius: 9px;
   border: 1px solid var(--line); background: var(--paper); color: var(--ink);

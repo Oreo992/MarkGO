@@ -33,8 +33,13 @@ export function settingsModalHtml(): string {
         <input id="ai-base-url" type="text" spellcheck="false" placeholder="https://api.openai.com" />
       </label>
       <label class="ai-field">
+        <span class="ai-field__label">回复长度上限（max tokens）</span>
+        <input id="ai-max-tokens" type="number" min="256" max="128000" step="1024" placeholder="8192" />
+        <span class="ai-field__hint">越大单条回复越长。别超过所用模型的上限，否则会报错（DeepSeek 约 8192，Claude 官方可达 6 万+）。</span>
+      </label>
+      <label class="ai-field">
         <span class="ai-field__label">API Key <span id="ai-key-status" class="ai-key-status"></span></span>
-        <input id="ai-key" type="password" spellcheck="false" placeholder="sk-..." />
+        <input id="ai-key" type="password" spellcheck="false" placeholder="已配置则留空即可不改" />
       </label>
       <div class="ai-modal__foot">
         <span class="ai-modal__msg" id="ai-settings-msg"></span>
@@ -56,13 +61,19 @@ export function wireSettings(root: HTMLElement, onSaved: () => void): void {
   const providerEl = root.querySelector<HTMLSelectElement>("#ai-provider")!;
   const modelEl = root.querySelector<HTMLInputElement>("#ai-model")!;
   const baseEl = root.querySelector<HTMLInputElement>("#ai-base-url")!;
+  const maxEl = root.querySelector<HTMLInputElement>("#ai-max-tokens")!;
   const keyEl = root.querySelector<HTMLInputElement>("#ai-key")!;
   const keyStatus = root.querySelector<HTMLElement>("#ai-key-status")!;
   const msg = root.querySelector<HTMLElement>("#ai-settings-msg")!;
 
+  // Tracked so an already-configured key can be kept without re-entry.
+  let hasKey = false;
+
   void getAiStatus().then((s) => {
     if (s.provider) providerEl.value = s.provider;
     modelEl.value = s.model || DEFAULT_MODEL[(s.provider as ProviderId) || "anthropic"];
+    maxEl.value = String(s.maxTokens || 8192);
+    hasKey = s.hasKey;
     keyStatus.textContent = s.hasKey ? "已配置 ✓" : "";
   });
 
@@ -81,14 +92,18 @@ export function wireSettings(root: HTMLElement, onSaved: () => void): void {
     const provider = providerEl.value as ProviderId;
     const model = modelEl.value.trim() || DEFAULT_MODEL[provider];
     const key = keyEl.value.trim();
-    if (!key) {
+    // Empty key is allowed only when one is already saved (Rust keeps it).
+    if (!key && !hasKey) {
       msg.textContent = "请填写 API Key";
       return;
     }
+    const maxTokens = Math.min(128000, Math.max(256, Number(maxEl.value) || 8192));
+    maxEl.value = String(maxTokens);
     msg.textContent = "保存中…";
     try {
-      await saveAiConfig(provider, model, baseEl.value.trim() || null, key);
+      await saveAiConfig(provider, model, baseEl.value.trim() || null, maxTokens, key);
       keyEl.value = "";
+      hasKey = true;
       keyStatus.textContent = "已配置 ✓";
       msg.textContent = "已保存";
       onSaved();

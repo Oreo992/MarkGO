@@ -85,7 +85,7 @@ const root = document.getElementById("app")!;
 let detachScrollSpy: (() => void) | null = null;
 let reparseTimer = 0;
 let aiOpen = false;
-let aiStatus = { hasKey: false };
+let aiStatus = { hasKey: false, maxTokens: 8192 };
 let aiPanel: { reset: () => void; refreshState: () => void } | null = null;
 let aiConsented = localStorage.getItem("markgo.ai.consent") === "1";
 
@@ -469,7 +469,7 @@ function closeAbout(): void {
 function wireAiSettings(): void {
   wireSettings(root, () => {
     void getAiStatus().then((s) => {
-      aiStatus = { hasKey: s.hasKey };
+      aiStatus = { hasKey: s.hasKey, maxTokens: s.maxTokens };
       aiPanel?.refreshState();
     });
   });
@@ -1188,7 +1188,7 @@ initResizeHandles();
 // Silent update check on launch — stays quiet unless a newer signed release
 // is available, in which case the custom update card is shown.
 void handleCheckUpdate(true);
-void getAiStatus().then((s) => { aiStatus = { hasKey: s.hasKey }; }).catch(() => {});
+void getAiStatus().then((s) => { aiStatus = { hasKey: s.hasKey, maxTokens: s.maxTokens }; }).catch(() => {});
 
 // Keep the custom maximize / restore glyph in sync with the real window state.
 void onMaximizeChange((maximized) => {

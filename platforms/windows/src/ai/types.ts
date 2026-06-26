@@ -11,6 +11,8 @@ export interface AiStatus {
   provider: ProviderId;
   model: string;
   hasKey: boolean;
+  /** Output-token ceiling per reply; user-configurable in settings. */
+  maxTokens: number;
 }
 
 export interface StreamHandlers {

@@ -19,7 +19,7 @@ import { renderMarkdown } from "../markdown";
 export interface AiPanelDeps {
   getDoc: () => string;
   getDocName: () => string;
-  getStatus: () => { hasKey: boolean };
+  getStatus: () => { hasKey: boolean; maxTokens: number };
   openSettings: () => void;
   onClose: () => void;
   /** Apply a rewritten full Markdown document back to the editor/reader. */
@@ -285,7 +285,7 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
     }
 
     runStream(
-      { system, messages },
+      { system, messages, maxTokens: deps.getStatus().maxTokens },
       aiEl,
       (acc, truncated) => {
         target.messages.push({ role: "assistant", content: acc });
@@ -332,7 +332,7 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
 
     const { system } = buildRequest(deps.getDoc(), []);
     runStream(
-      { system, messages: [{ role: "user", content: rewriteUserMessage(instruction) }], maxTokens: 8192 },
+      { system, messages: [{ role: "user", content: rewriteUserMessage(instruction) }], maxTokens: deps.getStatus().maxTokens },
       card,
       (acc, truncated) => {
         if (truncated) appendNote("文档较长，改写已达长度上限，可能未写完整；建议分段改写。");
