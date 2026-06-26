@@ -35,7 +35,7 @@ export async function saveAiConfig(
 }
 
 interface ChunkPayload { requestId: string; delta: string }
-interface DonePayload { requestId: string }
+interface DonePayload { requestId: string; truncated?: boolean }
 interface ErrorPayload { requestId: string; message: string }
 
 export function streamChat(
@@ -61,7 +61,7 @@ export function streamChat(
     unlisten.push(
       await listen<DonePayload>("ai://done", (e) => {
         if (e.payload.requestId === requestId) {
-          h.onDone();
+          h.onDone(!!e.payload.truncated);
           cleanup();
         }
       })
@@ -83,7 +83,10 @@ export function streamChat(
         requestId,
         system: req.system,
         messages: req.messages,
-        maxTokens: req.maxTokens ?? 1024,
+        // Chat answers default to 4096 (~2.5k Chinese chars); rewrites pass a
+        // larger explicit ceiling. The old 1024 default silently truncated
+        // anything longer than a short paragraph.
+        maxTokens: req.maxTokens ?? 4096,
       });
     } catch (err) {
       if (!finished) {

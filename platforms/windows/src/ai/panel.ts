@@ -107,6 +107,14 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
     return el;
   }
 
+  function appendNote(text: string): void {
+    const n = document.createElement("div");
+    n.className = "ai-note";
+    n.textContent = text;
+    transcript.appendChild(n);
+    transcript.scrollTop = transcript.scrollHeight;
+  }
+
   function renderEmpty(): void {
     if (!deps.getStatus().hasKey) {
       transcript.innerHTML = `
@@ -221,7 +229,7 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
   function runStream(
     req: { system: string; messages: ChatMessage[]; maxTokens?: number },
     el: HTMLElement,
-    onComplete: (acc: string) => void,
+    onComplete: (acc: string, truncated: boolean) => void,
     onErr: (msg: string) => void
   ): void {
     let acc = "";
@@ -232,11 +240,11 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
         el.innerHTML = renderAiMarkdown(acc) + `<span class="ai-cursor"></span>`;
         transcript.scrollTop = transcript.scrollHeight;
       },
-      onDone: () => {
+      onDone: (truncated) => {
         el.innerHTML = renderAiMarkdown(acc);
         active = null;
         setBusy(false);
-        onComplete(acc);
+        onComplete(acc, truncated);
       },
       onError: (m) => {
         active = null;
@@ -279,9 +287,10 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
     runStream(
       { system, messages },
       aiEl,
-      (acc) => {
+      (acc, truncated) => {
         target.messages.push({ role: "assistant", content: acc });
         saveSession(target);
+        if (truncated) appendNote("已达长度上限，回复可能未写完。可发「请接着上面继续」让它续写。");
       },
       (m) => {
         aiEl.innerHTML = `<div class="ai-error">出错了：${esc(m)} <button class="ai-retry">重试</button></div>`;
@@ -323,9 +332,10 @@ export function createAiPanel(root: HTMLElement, deps: AiPanelDeps) {
 
     const { system } = buildRequest(deps.getDoc(), []);
     runStream(
-      { system, messages: [{ role: "user", content: rewriteUserMessage(instruction) }], maxTokens: 4096 },
+      { system, messages: [{ role: "user", content: rewriteUserMessage(instruction) }], maxTokens: 8192 },
       card,
-      (acc) => {
+      (acc, truncated) => {
+        if (truncated) appendNote("文档较长，改写已达长度上限，可能未写完整；建议分段改写。");
         const bar = document.createElement("div");
         bar.className = "ai-rewrite-actions";
         bar.innerHTML = `

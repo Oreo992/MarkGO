@@ -76,6 +76,36 @@ pub fn build_body(
     }
 }
 
+/// True if this SSE `data:` payload signals the model stopped because it hit the
+/// output-token ceiling (Anthropic `stop_reason:max_tokens` / OpenAI
+/// `finish_reason:length`). Used to warn the user instead of stopping silently.
+pub fn parse_sse_truncated(p: Provider, data: &str) -> bool {
+    let data = data.trim();
+    if data.is_empty() || data == "[DONE]" {
+        return false;
+    }
+    let v: Value = match serde_json::from_str(data) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    match p {
+        Provider::Anthropic => {
+            v.get("type").and_then(Value::as_str) == Some("message_delta")
+                && v.get("delta")
+                    .and_then(|d| d.get("stop_reason"))
+                    .and_then(Value::as_str)
+                    == Some("max_tokens")
+        }
+        Provider::OpenAi => {
+            v.get("choices")
+                .and_then(|c| c.get(0))
+                .and_then(|c| c.get("finish_reason"))
+                .and_then(Value::as_str)
+                == Some("length")
+        }
+    }
+}
+
 /// Extract a text delta from one SSE `data:` payload, or `None`.
 pub fn parse_sse_data(p: Provider, data: &str) -> Option<String> {
     let data = data.trim();
@@ -247,6 +277,7 @@ pub async fn ai_stream(
 
     let mut stream = resp.bytes_stream();
     let mut buf = String::new();
+    let mut truncated = false;
     loop {
         tokio::select! {
             _ = token.cancelled() => break,
@@ -259,6 +290,9 @@ pub async fn ai_stream(
                             let line = buf[..nl].trim().to_string();
                             buf.drain(..=nl);
                             if let Some(data) = line.strip_prefix("data:") {
+                                if parse_sse_truncated(provider, data) {
+                                    truncated = true;
+                                }
                                 if let Some(delta) = parse_sse_data(provider, data) {
                                     let _ = window.emit(
                                         "ai://chunk",
@@ -276,7 +310,10 @@ pub async fn ai_stream(
     }
 
     state.active.lock().unwrap().remove(&request_id);
-    let _ = window.emit("ai://done", json!({ "requestId": request_id }));
+    let _ = window.emit(
+        "ai://done",
+        json!({ "requestId": request_id, "truncated": truncated }),
+    );
     Ok(())
 }
 
@@ -345,6 +382,28 @@ mod tests {
             parse_sse_data(Provider::Anthropic, r#"{"type":"message_start"}"#),
             None
         );
+    }
+
+    #[test]
+    fn detects_max_token_truncation() {
+        assert!(parse_sse_truncated(
+            Provider::Anthropic,
+            r#"{"type":"message_delta","delta":{"stop_reason":"max_tokens"}}"#
+        ));
+        assert!(parse_sse_truncated(
+            Provider::OpenAi,
+            r#"{"choices":[{"finish_reason":"length"}]}"#
+        ));
+        // Normal stops are NOT truncation.
+        assert!(!parse_sse_truncated(
+            Provider::Anthropic,
+            r#"{"type":"message_delta","delta":{"stop_reason":"end_turn"}}"#
+        ));
+        assert!(!parse_sse_truncated(
+            Provider::OpenAi,
+            r#"{"choices":[{"finish_reason":"stop"}]}"#
+        ));
+        assert!(!parse_sse_truncated(Provider::OpenAi, "[DONE]"));
     }
 
     #[test]

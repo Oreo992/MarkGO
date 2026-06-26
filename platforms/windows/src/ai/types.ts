@@ -15,7 +15,8 @@ export interface AiStatus {
 
 export interface StreamHandlers {
   onDelta: (text: string) => void;
-  onDone: () => void;
+  /** `truncated` is true when the model stopped at the output-token ceiling. */
+  onDone: (truncated: boolean) => void;
   onError: (message: string) => void;
 }
 
