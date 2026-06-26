@@ -31,6 +31,7 @@ export interface MenuContext {
   workspace: "read" | "edit";
   mode: ReadingModeId;
   layout: EditorLayout;
+  wrapCode: boolean;
   onOpen: () => void;
   onOpenRecent: (item: RecentItem) => void;
   onClearRecent: () => void;
@@ -48,6 +49,7 @@ export interface MenuContext {
   onCheckUpdate: () => void;
   onToggleAi: () => void;
   onAiSettings: () => void;
+  onToggleWrapCode: () => void;
 }
 
 const LAYOUTS: { id: EditorLayout; label: string }[] = [
@@ -136,6 +138,8 @@ export function buildMenus(ctx: MenuContext): TopMenu[] {
       { kind: "action", label: "放大字号", hint: "Ctrl+=", run: () => ctx.onFont("in"), disabled: !doc },
       { kind: "action", label: "缩小字号", hint: "Ctrl+-", run: () => ctx.onFont("out"), disabled: !doc },
       { kind: "action", label: "重置字号", hint: "Ctrl+0", run: () => ctx.onFont("reset"), disabled: !doc },
+      { kind: "divider" },
+      { kind: "action", label: "代码自动换行", checked: ctx.wrapCode, run: ctx.onToggleWrapCode },
       { kind: "divider" },
       { kind: "action", label: "AI 助手", run: ctx.onToggleAi, disabled: !doc },
       { kind: "action", label: "AI 设置…", run: ctx.onAiSettings },

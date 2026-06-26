@@ -229,6 +229,14 @@
   overflow-x: auto;
 }
 
+/* Code auto-wrap (view option, on by default): long lines wrap instead of
+   scrolling horizontally. data-wrap-code="0" falls back to the scroll behavior. */
+:root[data-wrap-code="1"] .code-block pre {
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .code-block code {
   font-family: var(--font-mono);
   font-size: 0.86em;

@@ -61,6 +61,7 @@ interface AppState {
   workspace: WorkspaceMode;
   layout: EditorLayout;
   fontScale: number;
+  wrapCode: boolean;
   hasDocument: boolean;
   analysis: MarkdownAnalysis;
 }
@@ -77,6 +78,8 @@ const state: AppState = {
   workspace: "read",
   layout: "split",
   fontScale: 1,
+  // Default on: long code lines wrap instead of scrolling horizontally.
+  wrapCode: localStorage.getItem("markgo.view.wrapCode") !== "0",
   hasDocument: false,
   analysis: analyze(""),
 };
@@ -118,6 +121,7 @@ const WIN_ICON = {
 
 function render(): void {
   document.documentElement.setAttribute("data-mode", state.mode);
+  document.documentElement.setAttribute("data-wrap-code", state.wrapCode ? "1" : "0");
   document.documentElement.style.setProperty("--reader-font-scale", String(state.fontScale));
 
   const menus = buildMenus(menuContext());
@@ -376,6 +380,7 @@ function menuContext(): MenuContext {
     workspace: state.workspace,
     mode: state.mode,
     layout: state.layout,
+    wrapCode: state.wrapCode,
     onOpen: handleOpen,
     onOpenRecent: handleOpenRecent,
     onClearRecent: () => {
@@ -397,6 +402,7 @@ function menuContext(): MenuContext {
     onCheckUpdate: () => void handleCheckUpdate(false),
     onToggleAi: () => void toggleAi(),
     onAiSettings: () => openAiSettings(),
+    onToggleWrapCode: () => setWrapCode(!state.wrapCode),
   };
 }
 
@@ -822,6 +828,13 @@ function setMode(mode: ReadingModeId): void {
   );
   refreshMenubar();
   if (state.workspace === "edit" && state.layout !== "source") refreshPreview();
+}
+
+function setWrapCode(on: boolean): void {
+  state.wrapCode = on;
+  localStorage.setItem("markgo.view.wrapCode", on ? "1" : "0");
+  document.documentElement.setAttribute("data-wrap-code", on ? "1" : "0");
+  refreshMenubar();
 }
 
 function setWorkspace(ws: WorkspaceMode): void {
